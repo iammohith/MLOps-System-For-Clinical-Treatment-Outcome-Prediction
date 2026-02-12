@@ -1,31 +1,32 @@
-# Training
+# Model Training & Evaluation
 
-Model training and evaluation scripts.
+This directory contains the core logic for generating clinical outcome predictions.
 
-## Scripts
+## 🧬 Algorithm & Determinism
 
-| Script | Description |
-|--------|-------------|
-| `train.py` | Train RandomForestRegressor, save model artifact |
-| `evaluate.py` | Evaluate on test set, generate metrics (RMSE, MAE, R²) |
-| `tune.py` | Grid search hyperparameter tuning (RF + GradientBoosting) |
+* **Algorithm**: `RandomForestRegressor` (Scikit-learn)
+* **Determinism**: Enforced via `random_seed: 42` in `params.yaml`.
+* **Target**: `Improvement_Score` (Continuous 0–10).
 
-## Running
+## 📄 Components
+
+| File | Role | Verification Indicator |
+| :--- | :--- | :--- |
+| `train.py` | Training Stage | Generates `models/model.joblib` |
+| `evaluate.py` | Evaluation Stage | Updates `metrics/scores.json` |
+| `tune.py` | Manual Tuning | Console output of best hyperparams |
+
+## 🏃 Instructions
 
 ```bash
-# Via DVC pipeline
-dvc repro
+# Run full training lifecycle
+dvc repro train
 
-# Manual
-python training/train.py
-python training/evaluate.py
-
-# Tuning (manual, not in DVC pipeline)
-python training/tune.py
+# Verify metrics
+cat metrics/scores.json
 ```
 
-## Model Details
+## ⚠️ Failure Modes
 
-- **Algorithm**: RandomForestRegressor
-- **Random Seed**: 42 (fixed for reproducibility)
-- **Hyperparameters**: Defined in `params.yaml`
+* **Data Skew**: If the input features in `data/processed/` change without re-running preprocessing, `train.py` will fail with a shape mismatch.
+* **Memory Errors**: Small VM instances may struggle with 200 estimators. Adjust `n_estimators` in `params.yaml` if needed.

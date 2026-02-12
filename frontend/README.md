@@ -1,23 +1,22 @@
-# Frontend
+# Web Frontend
 
-Modern web UI for clinical treatment outcome prediction.
+A modern, glassmorphic UI for interacting with clinical predictions.
 
-## Features
+## ✨ Features
 
-- Premium dark-mode design with glassmorphism effects
-- All categorical inputs as dropdowns (populated from CSV values)
-- Animated SVG circle gauge for prediction display (0–10 scale)
-- Non-clinical disclaimer prominently displayed
-- Responsive layout
+* **Zero Placeholders**: Dropdowns for Condition, Drug, and Side Effects are populated dynamically via the API's `/dropdown-values` endpoint (synchronized with `params.yaml`).
+* **Visual Feedback**: Result score (0–10) is rendered on an animated SVG circle gauge.
+* **Production Honest**: Prominently displays the clinical disclaimer to ensure safe usage context.
 
-## Serving
+## 🏃 Serving
 
 ```bash
-# Via Docker (recommended)
-docker compose -f infra/docker/docker-compose.yml up frontend
-
-# Or use any static file server
+# Option A: Python static server (Fast)
 cd frontend && python -m http.server 8080
+
+# Option B: Dockerize
+docker build -t mlops-frontend -f infra/docker/Dockerfile.frontend .
+docker run -p 8080:80 mlops-frontend
 ```
 
-Access at: `http://localhost:8080`
+**Access**: <http://localhost:8080>

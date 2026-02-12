@@ -1,23 +1,24 @@
-# Pipelines
+# Data Pipeline Stages
 
-Data processing pipeline stages for the DVC pipeline.
+Modular Python scripts that define the first three stages of the DVC lifecycle.
 
-## Stages
+## 🛠️ Pipeline Roles
 
-| Stage | Script | Input | Output |
-|-------|--------|-------|--------|
-| **Ingest** | `ingest.py` | `data/raw/real_drug_dataset.csv` | `data/processed/ingested.csv` |
-| **Validate** | `validate.py` | `ingested.csv` | `validated.csv` |
-| **Preprocess** | `preprocess.py` | `validated.csv` | `X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv`, `preprocessor.joblib` |
+1. **Ingest** (`ingest.py`): Extracts raw CSV and performs a basic record count audit.
+2. **Validate** (`validate.py`): Performs a strict schema check against `params.yaml`. Drops malformed rows.
+3. **Preprocess** (`preprocess.py`): Engages feature engineering (encoding, scaling) and generates the `preprocessor.joblib` artifact required by the inference service.
 
-## Running
+## 🏃 Execution
+
+These stages are designed to be run via DVC:
 
 ```bash
-# Via DVC (recommended)
-dvc repro
-
-# Individual stages
-python pipelines/ingest.py
-python pipelines/validate.py
-python pipelines/preprocess.py
+dvc repro ingest
+dvc repro validate
+dvc repro preprocess
 ```
+
+## 🚫 Critical Constraints
+
+* **Schema Sync**: These scripts depend on `params.yaml`. Changing a column name in the CSV without updating `params.yaml` will break the **Validate** stage.
+* **Stateful Output**: All outputs are written to `data/processed/`. Ensure this directory is writable.

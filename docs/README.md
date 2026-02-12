@@ -1,14 +1,18 @@
-# Documentation
+# Project Documentation
 
-Supporting documentation for the MLOps system.
+Supplemental design documents and auto-generated guides.
 
-## Contents
+## 📄 Contents
 
-| Document | Description |
-|----------|-------------|
-| `model_monitoring.md` | Conceptual design for drift detection and model monitoring |
+| Document | Purpose |
+| :--- | :--- |
+| `model_monitoring.md` | Conceptual design for future data drift implementation. |
+| [Root README](../README.md) | Authoritative setup and execution guide. |
 
-## Additional Resources
+## 🕹️ Live Documentation
 
-- **API docs**: Available at `http://localhost:8000/docs` when the API is running
-- **Root README**: See `../README.md` for full setup instructions
+When the Inference Service is active, interactive OpenAPI (Swagger) documentation is available at:
+
+<http://localhost:8000/docs>
+
+Use this to test schema rejection patterns against the Pydantic layer.

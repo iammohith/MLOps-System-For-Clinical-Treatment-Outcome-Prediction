@@ -1,23 +1,27 @@
-# Validation
+# Validation & Quality Gates
 
-Repository validation and quality gate checks.
+The single source of truth for repository integrity. No release is authorized unless the scripts in this directory pass with code `0`.
 
-## Usage
+## 🛡️ Authoritative Check (`release_check.py`)
+
+This is the "Zero-Trust" engine. It assumes nothing and verifies:
+
+1. **Integrity**: Existence of all mandatory ML and Infra files.
+2. **Execution**: Completes a full `dvc repro` smoke test.
+3. **Containerization**: Builds all 3 custom Docker images.
+4. **Orchestration**: Dry-run validates all K8s manifests.
+5. **Runtime**: Launches a transient API and verifies `/health`, `/predict`, and `/metrics`.
+
+### Usage
 
 ```bash
-# Full validation
-python validation/validate_repo.py
+# Recommended (runs in project venv)
+make validate
 
-# Skip optional checks
-python validation/validate_repo.py --skip-docker --skip-k8s --skip-api
+# Manual
+python validation/release_check.py
 ```
 
-## Checks Performed
+## 📜 Legacy Validation (`validate_repo.py`)
 
-1. **File existence** — All required files present
-2. **YAML syntax** — All YAML files parse correctly
-3. **Dockerfile sanity** — FROM and COPY instructions present
-4. **Training smoke test** — Full pipeline runs end-to-end
-5. **API startup test** — Health, predict, and schema rejection
-6. **Docker build** — Docker CLI availability
-7. **K8s dry-run** — All manifests pass `kubectl apply --dry-run=client`
+Maintained for air-gapped or restricted environments. It provides "soft" verification (warnings) without enforcing Docker or Pipeline runs.

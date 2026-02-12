@@ -1,27 +1,40 @@
-# Inference Service
+# Inference Service (FastAPI)
 
-FastAPI-based inference API for serving predictions.
+Production-ready prediction engine providing low-latency clinical outcome scores.
 
-## Endpoints
+## 🔌 API Contract
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Liveness and readiness check |
-| POST | `/predict` | Schema-validated prediction |
-| GET | `/metrics` | Prometheus format metrics |
-| GET | `/dropdown-values` | Valid dropdown values for frontend |
-| GET | `/docs` | Swagger UI (auto-generated) |
+| Method | Path | Enforced Behavior |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Returns model status and version info. |
+| `POST` | `/predict` | Strict Pydantic validation; returns 0–10 score. |
+| `GET` | `/metrics` | Prometheus counters and latency histograms. |
+| `GET` | `/dropdown-values` | **Dynamic**: Fetched directly from `params.yaml`. |
 
-## Running
+## 🏗️ Architecture Role
+
+The API acts as the bridge between model artifacts (`models/model.joblib`) and the frontend. It is the single source of truth for "allowed" categorical inputs.
+
+### Dynamic Sync
+
+Validation logic in `schemas.py` is dynamically loaded from `params.yaml`. If you update a valid drug name in the config, the API immediately reflects this in its validation and frontend dropdown endpoints.
+
+## 🏃 Running locally
 
 ```bash
-# Direct
-python -m uvicorn inference.app:app --host 0.0.0.0 --port 8000
-
-# Or via Docker
-docker compose -f infra/docker/docker-compose.yml up inference-api
+. venv/bin/activate
+export MODEL_PATH=models/model.joblib
+python -m uvicorn inference.app:app --host 127.0.0.1 --port 8000
 ```
 
-## Schema Enforcement
+## 🩺 Health Check Indicator
 
-The API uses Pydantic models (`schemas.py`) that enforce the exact CSV schema. Invalid requests receive HTTP 422 with detailed error messages.
+The API is "ready" only when `model_loaded` is `true`.
+
+```json
+{
+  "status": "healthy",
+  "model_loaded": true,
+  "model_version": "b190856..."
+}
+```

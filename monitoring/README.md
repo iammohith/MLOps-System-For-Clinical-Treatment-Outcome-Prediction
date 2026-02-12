@@ -1,35 +1,34 @@
-# Monitoring
+# Monitoring & Observability
 
-Prometheus and Grafana configuration for observability.
+Live telemetry stack for tracking clinical prediction throughput and quality.
 
-## Components
+## 📊 Instrumentation
 
-| Component | Port | Description |
-|-----------|------|-------------|
-| Prometheus | 9090 | Metrics collection and storage |
-| Grafana | 3000 | Dashboard visualization |
+The Inference Service exports metrics in Prometheus format at `/metrics`.
 
-## Prometheus
+### Key SLIs (Service Level Indicators)
 
-Scrapes the inference API `/metrics` endpoint every 15 seconds.
+* `api_request_total`: Request rate per endpoint and status.
+* `api_request_duration_seconds`: Response latency (p50/p95/p99 histograms).
+* `api_prediction_total`: Count of successful outcome inferences.
+* `api_prediction_errors_total`: Count of failures (model missing, data skew).
 
-### Tracked Metrics
+## 🎛️ Dashboards
 
-- `api_request_total` — Request count by method/endpoint/status
-- `api_prediction_total` — Total predictions served
-- `api_prediction_errors_total` — Prediction error count
-- `api_request_duration_seconds` — Latency distribution
-- `model_info` — Model version metadata
+Import `monitoring/grafana/dashboards/api_dashboard.json` into Grafana to visualize:
 
-## Grafana
+1. **System Health**: API availability status.
+2. **Model version**: Current active model ID (`model_info`).
+3. **Error Rates**: Real-time failure alerts.
 
-### Dashboard Import
+## 🏃 Running
 
-1. Open Grafana at `http://localhost:3000`
-2. Login: `admin` / `mlops2024`
-3. Add Prometheus data source: `http://prometheus:9090`
-4. Import dashboard from `grafana/dashboards/api_dashboard.json`
+```bash
+# Part of the Docker Compose stack
+docker compose -f infra/docker/docker-compose.yml up prometheus grafana
+```
 
-## Model Monitoring
+**Access**:
 
-See `../docs/model_monitoring.md` for conceptual drift detection design.
+* Prometheus: <http://localhost:9090>
+* Grafana: <http://localhost:3000> (`admin` / `mlops2024`)

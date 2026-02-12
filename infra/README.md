@@ -1,48 +1,39 @@
-# Infrastructure
+# Infrastructure (Containerization & Orchestration)
 
-Docker and Kubernetes configuration for the MLOps system.
+Standardized manifests for local development and edge deployment. All artifacts here are verified via dry-runs in the `make validate` protocol.
 
-## Docker
+## 🐳 Docker (Local Development)
+
+Located in `docker/`, we use a segmented Compose architecture.
+
+### Quick Commands
 
 ```bash
-# Build and run all services
-cd infra/docker
-docker compose up --build
+# Full stack build & launch
+docker compose -f infra/docker/docker-compose.yml up --build
 
-# Individual services
-docker compose up inference-api
-docker compose up frontend
-docker compose up prometheus
-docker compose up grafana
+# Individual layer launch
+docker compose -f infra/docker/docker-compose.yml up inference-api
 ```
 
-### Services & Ports
+## ☸️ Kubernetes (Local Deployment)
 
-| Service | Port | Image |
-|---------|------|-------|
-| Inference API | 8000 | mlops-inference-api |
-| Frontend | 8080 | mlops-frontend |
-| Prometheus | 9090 | prom/prometheus:v2.49.1 |
-| Grafana | 3000 | grafana/grafana:10.3.1 |
+Located in `k8s/`, designed for use with `kind` or `minikube`.
 
-## Kubernetes
+### Verification Logic
+
+We prioritize dry-run validation to ensure manifest integrity without requiring a live node.
 
 ```bash
-# Apply all manifests
-kubectl apply -f infra/k8s/
-
-# Dry-run validation
 kubectl apply --dry-run=client -f infra/k8s/
-
-# Check status
-kubectl get all -n mlops
 ```
 
-### NodePort Mapping
+### Component Roles
 
-| Service | NodePort |
-|---------|----------|
-| Inference API | 30800 |
-| Frontend | 30880 |
-| Prometheus | 30909 |
-| Grafana | 30300 |
+* **namespace.yaml**: Isolates the system in the `mlops` namespace.
+* **inference-deployment.yaml**: Scales the FastAPI pod.
+* **prometheus-configmap.yaml**: Authoritative scraping config.
+
+## ⚠️ Known Networking Limitations
+
+In Docker Compose, the API service name is `inference-api`. If you are running components outside of the Docker network (e.g., bare-metal API), you MUST update `monitoring/prometheus.yml` to target `localhost:8000`.

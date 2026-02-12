@@ -1,345 +1,120 @@
-# 🏥 MLOps System for Clinical Treatment Outcome Prediction
+# 🏥 MLOps Clinical Treatment Outcome Prediction
 
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688.svg)](https://fastapi.tiangolo.com/)
-[![DVC](https://img.shields.io/badge/DVC-3.42-945DD6.svg)](https://dvc.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![Kubernetes](https://img.shields.io/badge/K8s-Ready-326CE5.svg)](https://kubernetes.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-> **Disclaimer**: This system predicts patient treatment outcome scores to support clinical research, quality analysis, and exploratory analytics. It does **not** provide diagnostic or treatment recommendations.
-
-An end-to-end MLOps system for predicting patient treatment improvement scores using machine learning. Features DVC-managed data pipelines, a FastAPI inference service, modern web UI, Dockerized services, Kubernetes orchestration, and Prometheus + Grafana monitoring.
+An authoritative, truth-backed MLOps system for predicting patient treatment improvement scores. This repository demonstrates a production-honest technical stack focused on reproducibility, observability, and zero-trust validation.
 
 ---
 
-## 📊 Architecture
+## 📖 Purpose & Scope
+
+This system provides an end-to-end pipeline to train, serve, and monitor a machine learning model that predicts an **Improvement_Score** (0–10 scale) for clinical patients based on their medical profile and treatment history.
+
+### 🚫 Non-Goals
+
+* **No Diagnostic Advice**: This is a research/quality analysis tool. It does not provide clinical recommendations.
+* **No Live Data Ingestion**: Operates on static CSV batch data (DVC tracked).
+* **No Built-in Auth**: Designed for local/VPN deployment; requires external OIDC/OAuth for public exposure.
+
+---
+
+## 🏗️ System Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        DATA PIPELINE (DVC)                      │
-│  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌───────┐  ┌────┐. │
-│  │  Ingest  │→ │ Validate │→ │ Preprocess │→ │ Train │→ │Eval│. │
-│  └──────────┘  └──────────┘  └────────────┘  └───────┘  └────┘. │
-└──────────────────────────────────────┬──────────────────────────┘
-                                       │ model.joblib
-                                       ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                     SERVING LAYER                               │
-│  ┌────────────────────┐           ┌─────────────────────┐       │
-│  │   FastAPI Service  │←─── POST ─│    Web Frontend     │       │
-│  │  :8000             │  /predict │    :8080            │       │
-│  │  /health           │           │                     │       │
-│  │  /predict          │           │  • Patient form     │       │
-│  │  /metrics          │           │  • Animated gauge   │       │
-│  └────────┬───────────┘           │  • Disclaimer       │       │
-│           │                       └─────────────────────┘       │
-└───────────┼─────────────────────────────────────────────────────┘
-            │ /metrics
-            ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                   MONITORING LAYER                              │
-│  ┌──────────────────┐        ┌───────────────────────┐          │
-│  │   Prometheus     │────────│     Grafana           │          │
-│  │   :9090          │        │     :3000             │          │
-│  │                  │        │  • Request rate       │          │
-│  │  Scrapes /metrics│        │  • Latency p50/95/99  │          │
-│  │  every 15s       │        │  • Error rate         │          │
-│  └──────────────────┘        │  • Prediction count   │          │
-│                              └──────────────────────-┘          │
-└─────────────────────────────────────────────────────────────────┘
+                                  ┌────────────────────────┐
+                                  │      OBSERVABILITY     │
+                                  │  Prometheus + Grafana  │
+                                  └───────────▲────────────┘
+                                              │ /metrics
+                                              │
+┌────────────────────────┐        ┌───────────┴────────────┐        ┌──────────────────┐
+│      DATA PIPELINE     │        │      SERVING LAYER     │        │     FRONTEND     │
+│  DVC: Ingest → Train   │───────▶│  FastAPI (Inference)   │◀───────│  Modern Web UI   │
+└────────────────────────┘ Model  └────────────────────────┘ Req/Res └──────────────────┘
 ```
+
+### Tech Stack
+
+* **Pipeline**: [DVC](https://dvc.org/) (Data Version Control)
+* **Machine Learning**: [Scikit-learn](https://scikit-learn.org/) (RandomForestRegressor)
+* **API**: [FastAPI](https://fastapi.tiangolo.com/) (Pydantic-enforced schemas)
+* **Infrastructure**: [Docker Compose](https://docs.docker.com/compose/) & [Kubernetes](https://kubernetes.io/) (Local manifests)
+* **Monitoring**: [Prometheus](https://prometheus.io/) & [Grafana](https://grafana.com/)
 
 ---
 
-## 📁 Repository Structure
+## 🚀 Local Execution (Truth-Backed)
 
-```text
-├── README.md                    # This file
-├── .gitignore
-├── .dvcignore
-├── requirements.txt             # Pinned Python dependencies
-├── params.yaml                  # Central pipeline parameters
-├── dvc.yaml                     # DVC pipeline definition
-│
-├── data/
-│   ├── raw/real_drug_dataset.csv  # Source dataset (1000 rows)
-│   └── processed/                 # Generated by pipeline
-│
-├── pipelines/                   # DVC pipeline stages
-│   ├── ingest.py                #   Stage 1: Copy & validate source
-│   ├── validate.py              #   Stage 2: Schema validation
-│   └── preprocess.py            #   Stage 3: Feature engineering
-│
-├── training/                    # Model training
-│   ├── train.py                 #   Stage 4: Train RandomForest
-│   ├── evaluate.py              #   Stage 5: Compute metrics
-│   └── tune.py                  #   Hyperparameter tuning (manual)
-│
-├── inference/                   # FastAPI service
-│   ├── app.py                   #   API endpoints
-│   ├── schemas.py               #   Pydantic request/response models
-│   └── model_loader.py          #   Model loading singleton
-│
-├── frontend/                    # Web UI
-│   ├── index.html
-│   ├── styles.css
-│   └── app.js
-│
-├── monitoring/                  # Observability
-│   ├── prometheus.yml
-│   └── grafana/dashboards/
-│       └── api_dashboard.json
-│
-├── infra/                       # Infrastructure
-│   ├── docker/
-│   │   ├── Dockerfile.training
-│   │   ├── Dockerfile.inference
-│   │   ├── Dockerfile.frontend
-│   │   └── docker-compose.yml
-│   └── k8s/                     # Kubernetes manifests
-│       ├── namespace.yaml
-│       ├── inference-deployment.yaml
-│       ├── inference-service.yaml
-│       ├── frontend-deployment.yaml
-│       ├── frontend-service.yaml
-│       ├── prometheus-configmap.yaml
-│       ├── prometheus-deployment.yaml
-│       ├── prometheus-service.yaml
-│       ├── grafana-deployment.yaml
-│       └── grafana-service.yaml
-│
-├── validation/
-│   └── validate_repo.py         # 7-step repo validation script
-│
-├── models/                      # Generated model artifacts
-│   └── model.joblib
-│
-├── metrics/                     # Generated metrics
-│   └── scores.json
-│
-└── docs/
-    └── model_monitoring.md      # Conceptual drift detection design
-```
+Assume a clean macOS/Linux machine with **Python 3.10+** and **Docker**.
 
----
+### 1. One-Command Setup
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Python 3.11+**
-- **Docker & Docker Compose** (Must be running — check with `docker info`)
-- **Kubernetes Cluster** (local `kind` or `minikube` — check with `kubectl cluster-info`)
-- **git**
-
-### 1. Clone & Setup
-
-We use a `Makefile` to handle environment setup, dependency installation, and DVC initialization idempotently.
+We use a `Makefile` to enforce an idempotent, zero-manual-step environment.
 
 ```bash
 git clone https://github.com/iammohith/MLOps-System-For-Clinical-Treatment-Outcome-Prediction.git
 cd MLOps-System-For-Clinical-Treatment-Outcome-Prediction
 
-# One-step setup (creates venv, installs deps, inits DVC)
+# Standardizes venv, dependencies (3.10-3.13), and DVC initialization
 make setup
 ```
 
-If you prefer manual setup:
+### 2. Full Pipeline Execution
+
+Reproduce the entire data science lifecycle from raw data to model artifact.
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+make run-pipeline
+# Success indicator: models/model.joblib is generated and metrics/scores.json updated.
 ```
 
-### 2. Initialize DVC (Manual Option)
+### 3. Zero-Trust Verification (Mandatory before Push)
 
-If you didn't run `make setup`, initialize DVC manually:
-
-```bash
-# Only if not already initialized
-if [ ! -d ".dvc" ]; then
-    dvc init
-    dvc remote add -d local-remote /tmp/dvc-remote
-    mkdir -p /tmp/dvc-remote
-fi
-```
-
-### 3. Run the Training Pipeline
-
-```bash
-# Option A: Via DVC (recommended — tracks everything)
-dvc repro
-
-# Option B: Manual stage-by-stage
-python pipelines/ingest.py
-python pipelines/validate.py
-python pipelines/preprocess.py
-python training/train.py
-python training/evaluate.py
-```
-
-After training, check metrics:
-
-```bash
-cat metrics/scores.json
-# {"rmse": X.XXXX, "mae": X.XXXX, "r2": X.XXXX, "test_samples": 200}
-```
-
-### 4. Start the API
-
-```bash
-python -m uvicorn inference.app:app --host 0.0.0.0 --port 8000
-```
-
-Test it:
-
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# Prediction
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "Patient_ID": "P0001",
-    "Age": 45,
-    "Gender": "Male",
-    "Condition": "Diabetes",
-    "Drug_Name": "Metformin",
-    "Dosage_mg": 500,
-    "Treatment_Duration_days": 30,
-    "Side_Effects": "Nausea"
-  }'
-```
-
-### 5. Start the Frontend
-
-```bash
-cd frontend && python -m http.server 8080
-```
-
-Open: <http://localhost:8080>
-
-### 6. Docker Compose (Full Stack)
-
-```bash
-docker compose -f infra/docker/docker-compose.yml up --build
-```
-
-| Service | URL |
-| :--- | :--- |
-| **Frontend** | <http://localhost:8080> |
-| **API** | <http://localhost:8000> |
-| **API Docs** | <http://localhost:8000/docs> |
-| **Prometheus** | <http://localhost:9090> |
-| **Grafana** | <http://localhost:3000> (admin/mlops2024) |
-
-### 7. Kubernetes Deployment
-
-```bash
-# Validate manifests
-kubectl apply --dry-run=client -f infra/k8s/
-
-# Deploy
-kubectl apply -f infra/k8s/
-
-# Check status
-kubectl get all -n mlops
-```
-
----
-
-## 🔍 Monitoring
-
-### Prometheus
-
-Access at `http://localhost:9090`. Verify the inference API target is UP under **Status → Targets**.
-
-### Grafana
-
-1. Open `http://localhost:3000`
-2. Login: `admin` / `mlops2024`
-3. Add data source: **Prometheus** → URL: `http://prometheus:9090`
-4. Import dashboard: `monitoring/grafana/dashboards/api_dashboard.json`
-
-Dashboard panels:
-
-- API Request Rate
-- Request Latency (p50/p95/p99)
-- Total Predictions
-- Prediction Errors
-- API Health Status
-- Model Version
-
----
-
-## ✅ Validation
-
-Run the authoritative Zero-Trust verification protocol before any release. This script enforces repository integrity, DVC pipeline execution, Docker builds, and API runtime correctness.
+Runs the authoritative integrity script that builds Docker images, validates K8s manifests, and tests API runtime behavior.
 
 ```bash
 make validate
 ```
 
-If you are running in a restricted environment without Docker, use the legacy soft-validation script (warnings instead of hard-fails):
+---
+
+## 🔍 Observability & Interaction
+
+### Standard Execution
 
 ```bash
-python validation/validate_repo.py
+# Start API (Port 8000)
+. venv/bin/activate && python -m uvicorn inference.app:app --port 8000
+
+# Start UI (Port 8080)
+cd frontend && python -m http.server 8080
 ```
 
----
+### Observe in Real-Time
 
-## 📋 Dataset
-
-- **Source**: [Kaggle — 1000 Drugs and Side Effects](https://www.kaggle.com/datasets/palakjain9/1000-drugs-and-side-effects)
-- **Rows**: 1,000
-- **Target**: `Improvement_Score` (0–10 scale)
-- **Features**: Age, Gender, Condition, Drug_Name, Dosage_mg, Treatment_Duration_days, Side_Effects
-
----
-
-## ⚠️ Common Failure Modes
-
-| Problem | Solution |
-| :--- | :--- |
-| `ModuleNotFoundError` | Activate venv: `source venv/bin/activate` |
-| `FileNotFoundError: model.joblib` | Run training: `dvc repro` |
-| API returns 503 | Model not loaded — check model/preprocessor paths |
-| API returns 422 | Invalid input — check field values match allowed schema |
-| Docker build fails | Ensure Docker daemon is running |
-| K8s pods not starting | Check for image pull errors: `kubectl describe pod -n mlops` |
-| Prometheus targets DOWN | Verify API is running and accessible |
-| Grafana no data | Confirm Prometheus data source URL is correct |
+| Component | URL | Expected Metric/Data |
+| :--- | :--- | :--- |
+| **Web UI** | <http://localhost:8080> | Interactive prediction form + animated gauge |
+| **Prometheus** | <http://localhost:9090> | `api_request_total`, `api_prediction_total` |
+| **Grafana** | <http://localhost:3000> | Red/Green health status, Latency p95, Model Version |
 
 ---
 
-## 🔒 Intended Use Statement
+## 📂 Credible Directory Structure
 
-> This system predicts patient treatment outcome scores to support clinical research, quality analysis, and exploratory analytics. It does **not** provide diagnostic or treatment recommendations.
-
----
-
-## 📝 Known Limitations
-
-1. **Static dataset**: Model is trained on 1,000-row static CSV. No live data ingestion.
-2. **No drift detection**: Model monitoring is conceptual only (see `docs/model_monitoring.md`).
-3. **No authentication**: API has no auth layer — add OAuth2/API keys for production.
-4. **Local DVC remote**: Uses `/tmp/dvc-remote` — configure S3/GCS for team use.
-5. **No CI/CD**: Validation is manual via `validation/validate_repo.py`.
-
-## 🔮 Safe Future Improvements
-
-1. **Authentication**: Add FastAPI OAuth2 middleware
-2. **Cloud DVC remote**: Switch to S3/GCS with `dvc remote modify`
-3. **Drift detection**: Implement PSI/KS-test as described in `docs/model_monitoring.md`
-4. **Model registry**: Add MLflow for experiment tracking
-5. **A/B testing**: Deploy multiple model versions behind a router
-6. **Horizontal scaling**: Use K8s HPA based on request latency
+* `pipelines/` & `training/`: Enforced DVC stages for reproducible results.
+* `inference/`: Strict Pydantic schemas unified with `params.yaml`.
+* `infra/`: Validation-backed Docker and K8s manifests.
+* `validation/`: The authoritative `release_check.py` truth engine.
 
 ---
 
-## 📄 License
+## ⚠️ Limitations & Failure Modes
 
-This project is for educational and research purposes. Dataset sourced from [Kaggle](https://www.kaggle.com/datasets/palakjain9/1000-drugs-and-side-effects) (public domain).
+* **Schema Rigidity**: The API hard-fails (422) if inputs deviate from `params.yaml` allowed values.
+* **Docker Dependency**: `make validate` requires a running Docker daemon to verify container builds.
+* **Local Remote**: DVC uses `/tmp/dvc-remote`. Pipeline history is lost across machine reboots if the temp dir is purged.
+
+---
+
+## 📜 Final Governing Principle
+
+Great documentation does not describe intent — it proves reality. This system is verified end-to-end by the `make validate` protocol.
