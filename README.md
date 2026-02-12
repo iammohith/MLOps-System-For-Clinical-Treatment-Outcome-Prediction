@@ -133,26 +133,37 @@ An end-to-end MLOps system for predicting patient treatment improvement scores u
 - **Kubernetes Cluster** (local `kind` or `minikube` — check with `kubectl cluster-info`)
 - **git**
 
-### 1. Clone & Install
+### 1. Clone & Setup
+
+We use a `Makefile` to handle environment setup, dependency installation, and DVC initialization idempotently.
 
 ```bash
 git clone https://github.com/iammohith/MLOps-System-For-Clinical-Treatment-Outcome-Prediction.git
 cd MLOps-System-For-Clinical-Treatment-Outcome-Prediction
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # macOS/Linux
+# One-step setup (creates venv, installs deps, inits DVC)
+make setup
+```
 
-# Install dependencies
+If you prefer manual setup:
+
+```bash
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Initialize DVC
+### 2. Initialize DVC (Manual Option)
+
+If you didn't run `make setup`, initialize DVC manually:
 
 ```bash
-dvc init
-dvc remote add -d local-remote /tmp/dvc-remote
-mkdir -p /tmp/dvc-remote
+# Only if not already initialized
+if [ ! -d ".dvc" ]; then
+    dvc init
+    dvc remote add -d local-remote /tmp/dvc-remote
+    mkdir -p /tmp/dvc-remote
+fi
 ```
 
 ### 3. Run the Training Pipeline
