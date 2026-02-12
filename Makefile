@@ -39,7 +39,7 @@ run-pipeline: install
 	. $(VENV_DIR)/bin/activate && dvc repro
 
 validate: install
-	. $(VENV_DIR)/bin/activate && python validation/validate_repo.py
+	. $(VENV_DIR)/bin/activate && python validation/release_check.py
 
 clean:
 	rm -rf $(VENV_DIR)

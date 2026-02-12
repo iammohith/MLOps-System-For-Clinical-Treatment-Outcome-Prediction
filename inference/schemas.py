@@ -4,27 +4,31 @@ Shared between training validation and inference.
 Enforces exact CSV schema — inference hard-fails on schema violations.
 """
 
+import os
+import yaml
 from pydantic import BaseModel, Field, field_validator
-from typing import Literal
+from typing import ClassVar
 
+# --- Load Schema from params.yaml ---
+# This ensures API validation is always in sync with the data pipeline config.
+PARAMS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "params.yaml")
 
-# --- Valid categorical values (derived from dataset) ---
-VALID_GENDERS = ["Female", "Male"]
-VALID_CONDITIONS = ["Depression", "Diabetes", "Hypertension", "Infection", "Pain Relief"]
-VALID_DRUGS = [
-    "Amlodipine", "Amoxicillin", "Azithromycin", "Bupropion", "Ciprofloxacin",
-    "Escitalopram", "Glipizide", "Ibuprofen", "Insulin Glargine", "Losartan",
-    "Metformin", "Metoprolol", "Paracetamol", "Sertraline", "Tramadol",
-]
-VALID_SIDE_EFFECTS = [
-    "Abdominal pain", "Allergy", "Anxiety", "Back pain", "Constipation",
-    "Cough", "Diarrhea", "Dizziness", "Drowsiness", "Dry mouth",
-    "Fatigue", "Headache", "Heartburn", "Injection site pain", "Insomnia",
-    "Joint pain", "Liver issues", "Low blood sugar", "Low sugar", "Nausea",
-    "Rash", "Skin rash", "Sleep issues", "Slow heartbeat", "Stomach pain",
-    "Stomach upset", "Sweating", "Swelling", "Tiredness", "Weight gain",
-]
-VALID_DOSAGES = [50.0, 100.0, 250.0, 500.0, 850.0]
+try:
+    with open(PARAMS_PATH, "r") as f:
+        _params = yaml.safe_load(f)
+        _schema = _params["schema"]
+except Exception:
+    # Fallback to empty if file missing (e.g. during build stages)
+    _schema = {}
+
+VALID_GENDERS = _schema.get("gender_values", [])
+VALID_CONDITIONS = _schema.get("condition_values", [])
+VALID_DRUGS = _schema.get("drug_values", [])
+VALID_SIDE_EFFECTS = _schema.get("side_effect_values", [])
+VALID_DOSAGES = [float(v) for v in _schema.get("dosage_values", [])]
+
+AGE_RANGE = _schema.get("age_range", [0, 100])
+DURATION_RANGE = _schema.get("duration_range", [1, 365])
 
 
 class PredictionRequest(BaseModel):
@@ -37,9 +41,9 @@ class PredictionRequest(BaseModel):
     )
     Age: int = Field(
         ...,
-        ge=0,
-        le=100,
-        description="Patient age in years",
+        ge=AGE_RANGE[0],
+        le=AGE_RANGE[1],
+        description=f"Patient age in years ({AGE_RANGE[0]}-{AGE_RANGE[1]})",
     )
     Gender: str = Field(
         ...,
@@ -59,8 +63,9 @@ class PredictionRequest(BaseModel):
     )
     Treatment_Duration_days: int = Field(
         ...,
-        ge=1,
-        description="Duration of treatment in days",
+        ge=DURATION_RANGE[0],
+        le=DURATION_RANGE[1],
+        description=f"Duration of treatment in days ({DURATION_RANGE[0]}-{DURATION_RANGE[1]})",
     )
     Side_Effects: str = Field(
         ...,
@@ -143,8 +148,8 @@ class HealthResponse(BaseModel):
 class DropdownValues(BaseModel):
     """Schema for frontend dropdown population."""
 
-    genders: list[str] = VALID_GENDERS
-    conditions: list[str] = VALID_CONDITIONS
-    drugs: list[str] = VALID_DRUGS
-    side_effects: list[str] = VALID_SIDE_EFFECTS
-    dosages: list[float] = VALID_DOSAGES
+    genders: list[str] = Field(default_factory=lambda: VALID_GENDERS)
+    conditions: list[str] = Field(default_factory=lambda: VALID_CONDITIONS)
+    drugs: list[str] = Field(default_factory=lambda: VALID_DRUGS)
+    side_effects: list[str] = Field(default_factory=lambda: VALID_SIDE_EFFECTS)
+    dosages: list[float] = Field(default_factory=lambda: VALID_DOSAGES)

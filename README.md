@@ -277,16 +277,16 @@ Dashboard panels:
 
 ## ✅ Validation
 
-Run the comprehensive validation script:
+Run the authoritative Zero-Trust verification protocol before any release. This script enforces repository integrity, DVC pipeline execution, Docker builds, and API runtime correctness.
+
+```bash
+make validate
+```
+
+If you are running in a restricted environment without Docker, use the legacy soft-validation script (warnings instead of hard-fails):
 
 ```bash
 python validation/validate_repo.py
-```
-
-Skip optional checks:
-
-```bash
-python validation/validate_repo.py --skip-docker --skip-k8s --skip-api
 ```
 
 ---
