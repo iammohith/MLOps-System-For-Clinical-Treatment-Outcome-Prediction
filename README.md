@@ -16,8 +16,6 @@
 **A professional system for predicting how well a clinical treatment might work.**  
 Built to be reliable, easy to restart, and easy to monitor.
 
-[Quick Start](#-quick-setup) • [How it Works](#-system-workflow) • [Verification](#-system-verification) • [Monitoring](#-viewing-results)
-
 </div>
 
 ---
