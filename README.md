@@ -4,11 +4,11 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Production-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Scikit-Learn](https://img.shields.io/badge/scikit--learn-1.4.1-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
-![DVC](https://img.shields.io/badge/DVC-Verified-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.4.1-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
+![DVC](https://img.shields.io/badge/DVC-Verified-13ADC7?style=for-the-badge&logo=dvc&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Production-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-Production-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Production-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-000000?style=for-the-badge&logo=open-source-initiative&logoColor=white)
 
 **A production-hardened, zero-trust MLOps system for predicting clinical treatment outcomes.**
 *Engineered for Reliability, Reproducibility, and Scalability.*
