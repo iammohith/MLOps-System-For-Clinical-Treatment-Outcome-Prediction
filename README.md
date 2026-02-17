@@ -87,7 +87,17 @@ C4Context
 
 ---
 
-## 🛠️ Tech Stack
+## � Source Data Attribution
+
+The clinical dataset used to train this model is open-source and available on Kaggle:
+
+* **Name**: [1000 Drugs and Side Effects](https://www.kaggle.com/datasets/palakjain9/1000-drugs-and-side-effects)
+* **License**: Public Domain (CC0)
+* **Note**: We acknowledge the original authors for providing this synthetic medical dataset for research purposes.
+
+---
+
+## �🛠️ Tech Stack
 
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
