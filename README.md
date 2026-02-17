@@ -8,7 +8,7 @@
 ![DVC](https://img.shields.io/badge/DVC-Verified-13ADC7?style=for-the-badge&logo=dvc&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Production-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-Production-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-000000?style=for-the-badge&logo=open-source-initiative&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
 
 **A production-hardened, zero-trust MLOps system for predicting clinical treatment outcomes.**
 *Engineered for Reliability, Reproducibility, and Scalability.*
