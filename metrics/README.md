@@ -2,12 +2,10 @@
 
 <div align="center">
 
-![Format](https://img.shields.io/badge/Format-JSON-black?style=for-the-badge&logo=json)
-![DVC](https://img.shields.io/badge/Status-Tracked-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
-![Goal](https://img.shields.io/badge/Optimization-Minimize_RMSE-green?style=for-the-badge)
+![JSON](https://img.shields.io/badge/Format-JSON-black?style=for-the-badge&logo=json&logoColor=white)
+![DVC](https://img.shields.io/badge/Tracked_by-DVC-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
 
-**Quantitative performance reports of the trained models.**
-*Tracked, diffable, and automated.*
+**Performance KPIs for the Treatment Outcome Model.**
 
 [⬅️ Back to Root](../README.md)
 
@@ -15,101 +13,49 @@
 
 ---
 
-## 1. Executive Overview
+## 1. Overview
 
-### Purpose
+We track regression metrics to evaluate model performance to ensure it meets clinical standards before deployment. These metrics are calculated by `training/evaluate.py` on the held-out test set (`data/processed/*_test.csv`).
 
-This directory contains the output of the model evaluation stage (`training/evaluate.py`). It provides a standardized, machine-readable report of how well the model predicts clinical outcomes on unseen test data.
-
-### Business Problem
-
-* **Subjective Evaluation**: "It looks good" is not a scientific measure of model quality.
-* **Invisible Regressions**: Without tracked metrics, a code change might improve speed but secretly degrade accuracy by 10%.
-* **Comparison Hell**: Comparing two models (e.g., "Random Forest" vs "XGBoost") is difficult without a unified metric schema.
-
-### Solution
-
-* **Unified Schema**: All models must output a `scores.json` with specific keys (`rmse`, `mae`, `r2`).
-* **Git Integration**: Because these are small text files, they are committed to Git, allowing for `git diff` to show performance changes over time.
-* **DVC Integration**: DVC recognizes this file as a metric, enabling `dvc metrics diff`.
-
-### Architectural Positioning
-
-This is the **Report Layer**. It is produced by the *Evaluation Stage* and consumed by the *Human Reviewer* (or automated CI/CD gates).
+The results are saved to `metrics/scores.json`, which is tracked by DVC.
 
 ---
 
-## 2. Directory Contents
+## 2. Metric Definitions
 
-| File | Description | Schema |
-| :--- | :--- | :--- |
-| `scores.json` | Key Performance Indicators (KPIs) calculated on the held-out test set (20% split). | JSON |
-
----
-
-## 3. Metric Definitions
-
-We use standard regression metrics to quantify clinical prediction accuracy.
-
-### RMSE (Root Mean Squared Error)
-
-* **Formula**: $\sqrt{\frac{1}{n}\sum(y_{true} - y_{pred})^2}$
-* **Interpretation**: The standard deviation of the prediction errors. Penalizes large outliers heavily.
-* **Clinical Relevance**: Large errors in dosage prediction are dangerous. RMSE is our **Primary Metric**.
-* **Goal**: Minimize (Closer to 0 is better).
-
-### MAE (Mean Absolute Error)
-
-* **Formula**: $\frac{1}{n}\sum|y_{true} - y_{pred}|$
-* **Interpretation**: The average absolute difference between the predicted improvement score and the actual score.
-* **Clinical Relevance**: Easier to explain to doctors ("The score is typically off by 0.5 points").
-* **Goal**: Minimize (Closer to 0 is better).
-
-### R² (Coefficient of Determination)
-
-* **Formula**: $1 - \frac{SS_{res}}{SS_{tot}}$
-* **Interpretation**: The proportion of variance in the dependent variable that is predictable from the independent variables.
-* **Goal**: Maximize (Closer to 1.0 is better).
+| Metric | Full Name | Goal | Description |
+| :--- | :--- | :--- | :--- |
+| **RMSE** | Root Mean Squared Error | **Minimize** | Penalizes large errors heavily. The standard deviation of the residuals. |
+| **MAE** | Mean Absolute Error | **Minimize** | Average absolute difference between predicted and actual improvement score. |
+| **R²** | Coefficient of Determination | **Maximize** (-> 1.0) | Proportion of variance explained by the model. |
 
 ---
 
-## 4. Usage Guide
-
-### Human Review
-
-Open `metrics/scores.json` to see the latest run results:
+## 3. Metrics File Schema (`scores.json`)
 
 ```json
 {
-  "rmse": 0.4321,
-  "mae": 0.3105,
-  "r2": 0.8910,
-  "test_samples": 200
+  "rmse": 6.12,
+  "mae": 4.5,
+  "r2": 0.05
 }
 ```
 
-### Automated Comparison (DVC)
+> [!NOTE]
+> **Synthetic Data Warning**: The current dataset is synthetic/demo data. Do not expect high R² values (e.g., > 0.8) as the signal-to-noise ratio is intentionally challenging. Negative R² values are possible if the model performs worse than a simple mean baseline.
 
-To see how the current workspace passes/fails against the main branch:
+---
+
+## 4. DVC Integration
+
+To see the difference in metrics between the current experiment and the main branch:
 
 ```bash
-dvc metrics diff main
+dvc metrics diff --show-json
 ```
 
-**Example Output:**
+To show current metrics:
 
-```
-Path                 Metric    Value    Change
-metrics/scores.json  rmse      0.4321   -0.0102  (Improved)
-metrics/scores.json  r2        0.8910   +0.0050  (Improved)
-```
-
-### CI/CD Gating (Conceptual)
-
-A release gate script typically checks this file:
-
-```python
-# Example Gate Logic
-if metrics['rmse'] > 0.5:
-    raise ValueError("Model performance below threshold (RMSE > 0.5). Deployment Blocked.")
+```bash
+dvc metrics show
 ```

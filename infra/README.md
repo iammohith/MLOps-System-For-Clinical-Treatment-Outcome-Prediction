@@ -2,12 +2,11 @@
 
 <div align="center">
 
-![Docker](https://img.shields.io/badge/Docker-Verified_Code-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/K8s-Manifests_Ready-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
-![Prometheus](https://img.shields.io/badge/Monitoring-Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose_v2-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![K8s](https://img.shields.io/badge/Kubernetes-Manifests-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Observability-Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
 
-**Production-grade container definitions and orchestration manifests.**
-*Supports Docker Compose (Local) and Kubernetes (Production).*
+**Infrastructure as Code (IaC) for Local, Edge, and Production environments.**
 
 [⬅️ Back to Root](../README.md)
 
@@ -17,215 +16,80 @@
 
 ## 1. Executive Overview
 
-### Purpose
+### Philosophy
 
-This module defines the runtime environment for the MLOps system. It encapsulates the application logic into immutable containers and defines how they are orchestrated, networked, and monitored.
-
-### Business Problem
-
-* **"It works on my machine"**: Code behaving differently in production due to OS/Lib mismatches.
-* **Scalability**: Monolithic deployments are hard to scale selectively (e.g., scaling only Inference, not the Frontend).
-* **Security**: Running apps as `root` exposes the host to container breakouts.
-
-### Solution
-
-* **Immutable Infrastructure**: Build once, deploy anywhere (Dev/Staging/Prod).
-* **Isolation**: Each component runs in its own container with defined resource boundaries.
-* **Observability First**: Monitoring sidecars (Prometheus/Grafana) are first-class citizens.
-
-### Architectural Positioning
-
-This is the **Platform Layer**. It sits below the Application Layer (`inference/`, `frontend/`) and manages their lifecycle.
+The infrastructure is designed to be **platform-agnostic**. Whether running on a developer's laptop or a production Kubernetes cluster, the architecture remains consistent:
+*   **Microservices** architecture (Frontend, Backend, Monitoring).
+*   **Containerization** for isolation.
+*   **Declarative** configuration.
 
 ---
 
-## 2. System Context & Architecture
+## 2. Docker Compose (Local / Edge)
 
-### Network Topology (Local Dev)
+This is the primary method for local development and demonstration.
 
-The system uses a private bridge network (`mlops-network`) effectively isolating the backend services from the public internet, exposing only necessary ports.
+### Topology
 
-```mermaid
-graph LR
-    subgraph "Docker Host"
-        subgraph "mlops-network"
-            Frontend[Frontend Container]
-            API[Inference API Container]
-            Prom[Prometheus]
-            Graf[Grafana]
-        end
-    end
-
-    User((User)) -- Port 8080 --> Frontend
-    Frontend -- internal:8000 --> API
-    Prom -- internal:8000 --> API
-    Graf -- internal:9090 --> Prom
-    
-    API -.-> Model[Mounted Model Volume]
-    
-    style Frontend fill:#e3f2fd,stroke:#1565c0
-    style API fill:#e8f5e9,stroke:#2e7d32
-    style Prom fill:#ffccbc,stroke:#bf360c
-```
-
-### Interactions
-
-* **Frontend -> API**: HTTP REST over internal network.
-* **Prometheus -> API**: HTTP Scraping over internal network.
-* **User -> Frontend**: Public exposure via Port 8080.
-
-### Design Principles
-
-* **Sidecar Pattern**: Monitoring agents run alongside the application.
-* **Configuration Injection**: All config is injected via Environment Variables, making images environment-agnostic.
-
----
-
-## 3. Component-Level Design
-
-### Docker Images
-
-| Service | Dockerfile | Base Image | Logic |
+| Service | Container Name | Port | Description |
 | :--- | :--- | :--- | :--- |
-| **Inference API** | `infra/docker/Dockerfile.inference` | `python:3.11-slim` | Multi-stage build. Installs dependencies, copies model artifacts + code, runs Uvicorn. |
-| **Frontend** | `infra/docker/Dockerfile.frontend` | `nginx:alpine` | Static file serving. Copies HTML/JS/CSS to Nginx html root. |
+| `inference-api` | `mlops-inference-api` | `8000` | The core Python prediction engine. |
+| `frontend` | `mlops-frontend` | `8080` | Nginx serving the Web UI. |
+| `prometheus` | `mlops-prometheus` | `9090` | Time-series metric collector. |
+| `grafana` | `mlops-grafana` | `3000` | Visualization dashboards. |
 
-### Orchestration
+### Network
 
-| Tool | Config File | Purpose |
-| :--- | :--- | :--- |
-| **Docker Compose** | `docker-compose.yml` | Local development. Spins up full stack + monitoring in one command. |
-| **Kubernetes** | `infra/k8s/*.yaml` | Production deployment. Defines Deployments, Services, and ConfigMaps. |
+All services communicate over the internal bridge network `mlops-network`.
+
+### Usage
+
+**Note**: The Compose file is located in `infra/docker/`.
+
+```bash
+# Start the stack
+docker-compose -f infra/docker/docker-compose.yml up --build -d
+
+# Stop the stack
+docker-compose -f infra/docker/docker-compose.yml down
+```
+
+### Configuration
+
+*   **Data Persistence**: Prometheus (`prometheus-data`) and Grafana (`grafana-data`) use named volumes.
+*   **Grafana Admin**: Password defaults to `changeme` (Set via `GRAFANA_ADMIN_PASSWORD`).
+*   **Retention**: Prometheus is configured to retain metrics for **7 days**.
 
 ---
 
-## 4. Data Design
+## 3. Kubernetes (Production)
 
-### Volume Management
+Manifests for a standard K8s deployment are provided in `infra/k8s/`.
 
-* **Model Artifacts**: The API container needs access to `models/model.joblib`. In local dev, this is a bind mount. In K8s, it would be a PersistentVolumeClaim or an InitContainer download.
-* **Prometheus Data**: `prometheus-data` volume persists metrics across restarts.
+### Inventory
 
----
+*   `00-namespace.yaml`: Isolates resources in `mlops-system` namespace.
+*   `01-deployment.yaml`: Replicas for Inference and Frontend.
+*   `02-service.yaml`: ClusterIP and NodePort definitions.
+*   `03-monitoring.yaml`: Prometheus/Grafana deployments.
 
-## 5. Execution Flow
+### Deployment
 
-### Container Startup Sequence (Compose)
+```bash
+kubectl apply -f infra/k8s/
+```
 
-```mermaid
-sequenceDiagram
-    participant Docker
-    participant API
-    participant Frontend
-    participant Prometheus
+### Scaling
 
-    Docker->>API: Start Container
-    Note right of API: Healthcheck: Wait for HTTP 200
-    
-    Docker->>Frontend: Start Container
-    Frontend->>API: Check Connectivity
-    
-    Docker->>Prometheus: Start Container
-    Prometheus->>API: Begin Scrape Loop
+The inference service is stateless and can be horizontally scaled:
+
+```bash
+kubectl scale deployment inference-api --replicas=3 -n mlops-system
 ```
 
 ---
 
-## 6. Infrastructure & Deployment
+## 4. Security Context
 
-### Run Guide
-
-#### Option A: Docker Compose (Local)
-
-1. **Build & Run**:
-
-    ```bash
-    docker compose -f infra/docker/docker-compose.yml up --build -d
-    ```
-
-2. **Verify Services**:
-    * Frontend: `http://localhost:8080`
-    * API Health: `http://localhost:8000/health`
-    * Grafana: `http://localhost:3000`
-
-#### Option B: Kubernetes (Production)
-
-1. **Create Namespace**:
-
-    ```bash
-    kubectl apply -f infra/k8s/namespace.yaml
-    ```
-
-2. **Apply Manifests**:
-
-    ```bash
-    kubectl apply -f infra/k8s/
-    ```
-
----
-
-## 8. Security Architecture
-
-### Compliance Implemented
-
-* **Non-Root Execution**: `Dockerfile.inference` creates a dedicated `appuser` (UID 1000). The process never runs as root.
-* **Read-Only Filesystem**: (K8s) Pods can be configured with `readOnlyRootFilesystem: true` (application writes only to `/tmp`).
-* **Secret Management**: Sensitive values (e.g., Grafana Password) are injected via Environment Variables, never hardcoded.
-
----
-
-## 9. Performance & Scalability
-
-* **Horizontal Scaling**: The API is stateless. In K8s, simply increase `replicas: 3`.
-* **Load Balancing**: K8s Service (ClusterIP) balances traffic across all healthy API pods.
-
----
-
-## 10. Reliability & Fault Tolerance
-
-* **Liveness Probes**: K8s restarts the pod if `/health` fails N times.
-* **Restart Policy**: `restart: unless-stopped` ensures resilience against temporary crashes.
-
----
-
-## 11. Observability
-
-### Stack
-
-* **Metrics**: Prometheus (Time Series database).
-* **Visualization**: Grafana (Dashboards).
-
----
-
-## 12. Testing Strategy
-
-* **Structure Tests**: `docker build --check` ensures valid Dockerfiles.
-* **Dry Run**: `kubectl apply --dry-run` ensures valid manifests.
-
----
-
-## 13. Configuration Table
-
-| Env Variable | Default | Description |
-| :--- | :--- | :--- |
-| `MODEL_PATH` | `models/model.joblib` | Path inside the container to the model. |
-| `GRAFANA_ADMIN_PASSWORD` | `changeme` | Admin password for Grafana. |
-
----
-
-## 14. Development Guide
-
-### Adding a Service
-
-1. Create `Dockerfile.myservice`.
-2. Add entry to `docker-compose.yml`.
-3. Add K8s manifest in `infra/k8s/`.
-
----
-
-## 15. Future Improvements
-
-* **Helm Charts**: Templatize K8s manifests for easier multi-environment deployment.
-* **Service Mesh**: Integrate Istio for mutual TLS (mTLS) between services.
-
----
+*   **Non-Root**: All Dockerfiles specify a non-root user (`appuser` id:1000 or `nginx`) to minimize container breakout risks.
+*   **Read-Only Filesystem**: (Recommended) Production deployments should mount root as Read-Only.

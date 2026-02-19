@@ -1,11 +1,11 @@
-# 📚 Knowledge Base & Documentation
+# 📚 Documentation Hub
 
 <div align="center">
 
-![Type](https://img.shields.io/badge/Type-Technical_Index-blue?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Living_Document-success?style=for-the-badge)
+![Documentation](https://img.shields.io/badge/Docs-Diátaxis-blue?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Up_to_Date-green?style=for-the-badge)
 
-**Central repository for technical deep-dives, RFCs, and architectural decision records.**
+**Central index for the MLOps System documentation.**
 
 [⬅️ Back to Root](../README.md)
 
@@ -13,50 +13,53 @@
 
 ---
 
-## 1. Document Index
+## 🧭 Navigation
 
-| Document | Category | Description |
+| Component | Link | Description |
 | :--- | :--- | :--- |
-| **[Model Monitoring](./model_monitoring.md)** | `SPEC` | Architectural proposal for data drift and bias detection (RFC). |
-| **[Root Guide](../README.md)** | `GUIDE` | Deployment, Setup, and System Overview. |
-| **[Contributing](./CONTRIBUTING.md)** | `POLICY` | Standards for code, security, and medical validation. |
+| **Data** | [README](../data/README.md) | Schema definitions, DVC tracking, and constraints. |
+| **Pipelines** | [README](../pipelines/README.md) | The DAG (Ingest → Validate → Train → Evaluate). |
+| **Training** | [README](../training/README.md) | Random Forest algorithm, hyperparameters, and logic. |
+| **Models** | [README](../models/README.md) | Artifact versioning (`.joblib`) and serialization. |
+| **Metrics** | [README](../metrics/README.md) | Performance reports (`scores.json`) and KPI definitions. |
+| **Inference** | [README](../inference/README.md) | FastAPI service, endpoints, and schemas. |
+| **Frontend** | [README](../frontend/README.md) | Web UI logic, DOM manipulation, and Nginx setup. |
+| **Infrastructure** | [README](../infra/README.md) | Docker, Kubernetes manifests, and network topology. |
+| **Monitoring** | [README](../monitoring/README.md) | Prometheus & Grafana stack configuration. |
+| **Validation** | [README](../validation/README.md) | CI/CD gates and release checklists. |
 
 ---
 
-## 2. Documentation Architecture
+## 📘 Documentation Standards
 
-We follow the **Diátaxis** framework to ensure documentation serves its intended purpose:
+We follow the **Diátaxis Framework** for documentation structure:
 
-```mermaid
-graph TD
-    Docs[Documentation] --> Tutorials[Tutorials]
-    Docs --> HowTo[How-to Guides]
-    Docs --> Reference[Technical Reference]
-    Docs --> Explanation[Architectural Explanation]
-    
-    style Reference fill:#e3f2fd,stroke:#1565c0
-    style Explanation fill:#fff9c4,stroke:#fbc02d
-```
+1.  **Tutorials**: Step-by-step lessons (See `Root README > Installation`).
+2.  **How-to Guides**: Problem-oriented steps (See `Usage Guide` in component READMEs).
+3.  **Reference**: Technical descriptions (See `Configuration Tables`).
+4.  **Explanation**: Understanding-oriented (See `System Context` diagrams).
 
-### Reference vs. Explanation
+### Tooling
 
-- **Sub-READMEs** (e.g., `inference/README.md`) serve as **Refrence** for specific modules.
-- **Docs Folder** (this directory) contains **Explanations** and long-term **Specs**.
+*   **Mermaid.js**: For diagrams (Flowcharts, Sequence diagrams, ERDs).
+*   **Markdown**: Standard GitHub Flavored Markdown (GFM).
+*   **Shields.io**: For dynamic status badges.
 
 ---
 
-## 3. Writing Standards
+## 🆕 Quick Start for Developers
 
-All documentation must adhere to the following:
+If you are new to the codebase, we recommend reading in this order:
 
-- **Mermaid Diagrams**: Used for any flow or architecture change.
-- **Executive Summaries**: Every file must start with "Purpose", "Business Problem", and "Solution".
-- **Zero-Trust Context**: Every doc must highlight security boundaries.
+1.  **Root README**: High-level context.
+2.  **Inference README**: Understanding the product interface.
+3.  **Pipelines README**: Understanding how the model is built.
+4.  **Infra README**: Understanding how it is deployed.
 
 ---
 
-## 🔮 Future Roadmap
+## 🤝 Contributing to Docs
 
-- [ ] **Data Dictionary**: Comprehensive definition of all 1000+ synthetic clinical fields.
-- [ ] **Deployment ADRs**: Detailed logs of why specific K8s configurations were chosen.
-- [ ] **Medical Validation API**: Swagger UI documentation link.
+*   Keep diagrams up to date with code changes.
+*   Verify links before merging.
+*   Use specific file paths (e.g., `infra/docker/Dockerfile.inference`) instead of vague references.

@@ -1,13 +1,12 @@
-# 🗄️ Data Engineering & Management
+# 💽 Data Management & Schema Contracts
 
 <div align="center">
 
-![DVC](https://img.shields.io/badge/Orchestration-DVC-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
-![Parquet](https://img.shields.io/badge/Format-CSV_/_Parquet-green?style=for-the-badge)
-![Compliance](https://img.shields.io/badge/Compliance-Pseudonymized-red?style=for-the-badge)
+![DVC](https://img.shields.io/badge/Data-Versioned-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
+![Schema](https://img.shields.io/badge/Schema-Enforced-green?style=for-the-badge)
+![Encryption](https://img.shields.io/badge/PII-Pseudonymized-red?style=for-the-badge)
 
-**A rigorous system for versioning, validating, and transforming clinical datasets.**
-*Immutable. Traceable. Compliant.*
+**The foundation of the MLOps pipeline. Strictly typed, versioned, and immutable.**
 
 [⬅️ Back to Root](../README.md)
 
@@ -19,256 +18,132 @@
 
 ### Purpose
 
-The Data Layer is the foundation of the MLOps system. It manages the lifecycle of clinical data from raw ingestion to feature engineered artifacts. It enforces **Schema Contracts** and ensuring **Reproducibility**.
+This directory manages the lifecycle of the clinical dataset. It enforces the "Data as Code" philosophy where data is:
+1.  **Versioned** alongside code (via DVC).
+2.  **Validated** against a strict schema (`params.yaml`).
+3.  **Immutable** once ingested.
 
 ### Business Problem
 
-* **Data Drifts**: Upstream changes in hospital EMR formats break downstream models.
-* **Compliance Risks**: Storing PII/PHI in insecure formats violates HIPAA/GDPR.
-* **Silent Corruption**: "Bit Rot" or accidental manual edits to CSVs invalidate weeks of training.
+*   **Drift**: Without schema enforcement, "Age" might drift from `Years` (0-100) to `Months` (0-1200) without warning.
+*   **Reproducibility**: You cannot reproduce a model if you don't have the *exact* data it was trained on.
+*   **Privacy**: Using real PII (Names, SSNs) in ML training is a GDPR/HIPAA violation.
 
 ### Solution
 
-* **Immutable Lake**: Raw data is read-only. We never modify source files; we only create new versioned artifacts.
-* **Contract-First Design**: The `params.yaml` file acts as a legal contract. Data that violates it is rejected at the gate.
-* **Content-Addressable Storage**: DVC hashes file contents. If a single byte changes, the hash changes, alerting the system.
-
-### Architectural Positioning
-
-This module is the **Foundation Layer**. It feeds the Pipeline (`pipelines/`) and is governed by the Configuration (`params.yaml`).
+*   **DVC**: We track `.dvc` files instead of large CSVs.
+*   **Pseudonymization**: The pipeline expects `Patient_ID` (e.g., `P0001`) instead of names.
+*   **Contract Testing**: The `validate.py` pipeline stage strictly rejects data violating the schema.
 
 ---
 
-## 2. System Context & Data Flow
+## 2. Directory Structure
 
-### The "Data Factory" Architecture
-
-```mermaid
-graph TD
-    Source[(Hospital EMR)] -->|Ingest Script| Raw[data/raw/dataset.csv]
-    
-    subgraph "Immutable Storage Layer"
-        Raw -->|Validate| Validated[data/processed/validated.csv]
-        Validated -->|Feature Eng| Features[data/processed/X_train.csv]
-        Validated -->|Target Enc| Targets[data/processed/y_train.csv]
-    end
-    
-    Features -->|Train| ModelArtifact[(models/model.joblib)]
-    
-    style Raw fill:#ffebee,stroke:#c62828
-    style Validated fill:#fff9c4,stroke:#fbc02d
-    style Features fill:#e8f5e9,stroke:#2e7d32
-    style ModelArtifact fill:#e3f2fd,stroke:#1565c0
+```
+data/
+├── raw/
+│   ├── .gitignore              # Ignores CSVs
+│   ├── real_drug_dataset.csv   # The Source of Truth (Git-ignored)
+│   └── real_drug_dataset.dvc   # The Pointer (Tracked)
+│
+└── processed/
+    ├── .gitignore              # Ignores all outputs
+    ├── ingested.csv            # Copy of raw data
+    ├── validated.csv           # Schema-compliant data
+    ├── X_train.csv             # Training Features
+    ├── X_test.csv              # Testing Features
+    ├── y_train.csv             # Training Labels
+    ├── y_test.csv              # Testing Labels
+    └── preprocessor.joblib     # Serialized Scikit-Learn Pipeline
 ```
 
-### Interactions
+---
 
-1. **Ingestion**: `pipelines/ingest.py` pulls from source.
-2. **Validation**: `pipelines/validate.py` checks schema against `params.yaml`.
-3. **Transformation**: `pipelines/preprocess.py` scales and encodes features.
+## 3. Data Schema & Dictionary
+
+The schema is physically enforced by `pipelines/validate.py` based on `params.yaml`.
+
+### Feature Columns (Inputs)
+
+| Column Name | Type | Valid Range / Values | Description |
+| :--- | :--- | :--- | :--- |
+| `Patient_ID` | String | Format: `P\d+` | Unique identifier (Pseudonymized). |
+| `Age` | Int | `18` - `79` | Patient age in years. |
+| `Gender` | Enum | `Male`, `Female` | Biological sex. |
+| `Condition` | Enum | `Diabetes`, `Hypertension`, `Depression`... | Primary diagnosis code (ICD-10 equivalent). |
+| `Drug_Name` | Enum | `Metformin`, `Losartan`, `Sertraline`... | Prescribed medication. |
+| `Dosage_mg` | Float | `50.0`, `100.0`, `250.0`, `500.0`, `850.0` | Daily dosage amount. |
+| `Treatment_Duration_days` | Int | `5` - `59` | Length of prescribed course. |
+| `Side_Effects` | Enum | `Nausea`, `Dizziness`, `Headache`... | Reported adverse events. |
+
+### Target Column (Output)
+
+| Column Name | Type | Valid Range | Description |
+| :--- | :--- | :--- | :--- |
+| `Improvement_Score` | Float | `0.0` - `10.0` | Clinical outcome metric (Higher is better). |
 
 ---
 
-## 3. Data Schema & Relationships (ERD)
+## 4. Entity Relationship Diagram (ERD)
 
-The data schema is flat to optimize for columnar processing, but represents complex clinical entities.
+While currently a single-table dataset, the logical model represents a **Patient Treatment Event**.
 
 ```mermaid
 erDiagram
+    PATIENT ||--o{ TREATMENT : undergoes
+    TREATMENT }|--|| DRUG : uses
+    TREATMENT }|--|| OUTCOME : results_in
+
     PATIENT {
-        string Patient_ID PK "Pseudonymized (P-xxxxx)"
-        int Age "18-79"
-        enum Gender "M/F"
-    }
-    TREATMENT_EPISODE {
-        enum Condition "ICD-10 Category"
-        enum Drug_Name "Active Ingredient"
-        float Dosage_mg "Discrete Levels"
-        int Duration_days "5-59"
-    }
-    OUTCOME {
-        float Improvement_Score "0.0 - 10.0"
-        array Side_Effects "Reported Adverse Events"
+        string Patient_ID PK
+        int Age
+        string Gender
+        string Condition
     }
 
-    PATIENT ||--o{ TREATMENT_EPISODE : receives
-    TREATMENT_EPISODE ||--|| OUTCOME : results_in
-```
-
-### Constraints (Enforced via `params.yaml`)
-
-| Field | Type | Constraint | Rationale |
-| :--- | :--- | :--- | :--- |
-| `Age` | Int | `18-79` | Clinical trial protocol inclusion criteria. |
-| `Dosage_mg` | Float | `[50, 100, ..., 850]` | Standard pill sizes. Continuous values indicate data error. |
-| `Side_Effects` | String | List of 30 known terms | Standardization for NLP downstream. |
-
----
-
-## 4. Storage & Directory Structure
-
-We adhere to a **Tiered Storage** strategy.
-
-| Tier | Directory | State | Policy |
-| :--- | :--- | :--- | :--- |
-| **Bronze** | `data/raw/` | Immutable | Original dump. Never edited. Git-Ignored (DVC Tracked). |
-| **Silver** | `data/processed/` | Transient | Cleaned, Validated. Can be deleted and regenerated. |
-| **Gold** | `models/` | Valuable | The final intelligence artifact. |
-
-**Directory Manifest**:
-
-* `real_drug_dataset.csv`: The 1000-row synthetic ground truth.
-* `preprocessor.joblib`: The Scikit-Learn `ColumnTransformer` (Scaling/Encoding logic) needed for inference.
-* `X_train.csv` / `y_train.csv`: Split and prepared matrices for training loop.
-
----
-
-## 5. Versioning Strategy (DVC)
-
-We do not track large files in Git. We track **Metadata**.
-
-* **.dvc files**: Small text pointers containing MD5 hashes and cloud storage paths (S3/GCS).
-* **dvc.lock**: The exact snapshot of the data pipeline state.
-
-### Common Operations
-
-| Goal | Command |
-| :--- | :--- |
-| **View Changes** | `dvc status` |
-| **Reproduce Data** | `dvc repro` |
-| **Sync with Cloud** | `dvc pull` / `dvc push` |
-
-> **Pro Tip**: Always verify `dvc status` returns "Data and pipelines are up to date" before training a production model.
-
----
-
-## 6. Troubleshooting Data Issues
-
-### "SchemaValidationFailed"
-
-* **Symptom**: Pipeline crashes at `validate` stage.
-* **Cause**: Incoming data contains new categories (e.g., "Non-Binary" gender) not in `params.yaml`.
-* **Fix**: Update `params.yaml` allow-list IF this is a valid business change. Otherwise, reject data.
-
-### "md5 mismatch"
-
-* **Symptom**: DVC refuses to pull.
-* **Cause**: Local file was modified manually.
-* **Fix**: `dvc checkout --force` to restore strict version from cache.
-
-<div align="center">
-
-![DVC](https://img.shields.io/badge/Data-Versioned-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
-![Schema](https://img.shields.io/badge/Schema-Verified-003B57?style=for-the-badge)
-
-**Data versioning and strict schema enforcement.**
-*Verified for local execution.*
-
-[⬅️ Back to Root](../README.md)
-
-</div>
-
----
-
-## 📐 Data Relationships (ERD)
-
-The data schema is flat but strictly typed to ensure clinical validity.
-
-```mermaid
-erDiagram
-    PATIENT {
-        string Patient_ID PK "Format: Pxxxx"
-        int Age "Range: 18-79"
-        string Gender "Male, Female"
-    }
     TREATMENT {
-        string Condition "5 Clinical Conditions"
-        string Drug_Name "15 Supported Drugs"
-        float Dosage_mg "Discrete: 50, 100, 250, 500, 850"
-        int Duration_days "Range: 5-59"
-        string Side_Effects "30 Monitored Effects"
+        int Duration_days
+        string Side_Effects
     }
+
+    DRUG {
+        string Drug_Name
+        float Dosage_mg
+    }
+
     OUTCOME {
-        float Improvement_Score "Target: 0.0 - 10.0"
+        float Improvement_Score
     }
-
-    PATIENT ||--|| TREATMENT : undergoes
-    TREATMENT ||--|| OUTCOME : results_in
 ```
 
 ---
 
-## 🧠 Design Decisions
+## 5. Usage Guide
 
-| Decision | Rationale |
-| :--- | :--- |
-| **Constraints in `params.yaml`** | Single Source of Truth (SSOT). Both Python backend and JS frontend read this file to validate inputs. |
-| **Discrete Dosages** | Medical dosages are not continuous (you can't take 53mg). We treat them as categorical floating-point values. |
-| **Strict Typing** | `Age` must be Integer. `Duration` must be Integer. This prevents "floating point age" errors. |
-| **Read-Only Raw Data** | The `data/raw` folder is treated as immutable. Any cleaning creates a *new* file in `data/processed`. |
+### Ingesting New Data
 
----
+1.  Place new CSV in `data/raw/`.
+2.  Update DVC tracking:
+    ```bash
+    dvc add data/raw/real_drug_dataset.csv
+    git add data/raw/real_drug_dataset.csv.dvc
+    git commit -m "Update dataset: Q1 2026 Batch"
+    ```
+3.  Run the pipeline:
+    ```bash
+    dvc repro
+    ```
 
-## 📋 Data Schema
+### Troubleshooting
 
-All data flowing through the system is validated against the central contract in `params.yaml`.
-
-### Numeric Constraints
-
-| Feature | Range | Type |
-| :--- | :--- | :--- |
-| `Age` | **18 – 79** | Integer |
-| `Dosage_mg` | [50, 100, 250, 500, 850] | Float (Discrete) |
-| `Treatment_Duration_days` | **5 – 59** | Integer |
-| `Improvement_Score` | 0 – 10 | Float (Target) |
-
-### Categorical Feature
-
-* **Gender**: `Female`, `Male`
-* **Condition**: 5 distinct clinical conditions.
-* **Drug_Name**: 15 supported medications.
-* **Side_Effects**: 30 monitored side effects.
-
-> [!WARNING]
-> **Strict Enforcement**: Data outside these ranges will cause pipeline failures (Validation Stage) or API Errors (422 Unprocessable Entity).
+*   **ValidationError: Age out of range**: Check if input contains pediatric data (<18).
+*   **ValidationError: Invalid Drug**: Ensure the drug is listed in `params.yaml`.
+*   **"No data" error**: Ensure you have pulled the data from DVC remote (`dvc pull`).
 
 ---
 
-## 🔄 Lifecycle & Commands
+## 6. Security & Compliance
 
-1. **Raw Data**: Stored in `data/raw/` (Read-Only source).
-2. **Processed**: Generated in `data/processed/` (Git-ignored, DVC-tracked).
-3. **Versioning**: Use `dvc` commands to manage data history.
-
-```bash
-# Check if data is up to date vs dvc.lock
-dvc status
-
-# Pull latest data from remote (if configured)
-dvc pull
-
-# Commit changes to data
-dvc commit
-```
-
----
-
-## 📁 Directory Manifest
-
-| File | Description |
-| :--- | :--- |
-| `raw/real_drug_dataset.csv` | The immutable source dataset. |
-| `processed/ingested.csv` | Output of Ingest stage (validated copy). |
-| `processed/clean_data.csv` | Output of Validation stage (schema compliant). |
-| `processed/X_train.csv` | Preprocessed features (One-Hot Encoded, Scaled). |
-| `processed/y_train.csv` | Target labels. |
-| `processed/preprocessor.joblib` | Saved Scikit-Learn pipeline (Scaler/Encoder) for inference. |
-
----
-
-## ❓ Troubleshooting
-
-| Issue | Cause | Fix |
-| :--- | :--- | :--- |
-| **MD5 Mismatch** | `dvc.lock` doesn't match actual file hash. | Run `dvc repro` to regenerate the file and update the lock. |
-| **Missing Data** | You cloned the repo but didn't pull data. | Run `dvc pull` (if remote setup) or `dvc repro` to regenerate from raw. |
+*   **At Rest**: Data is stored on local disk (dev) or S3 (prod), encrypted by the storage provider.
+*   **In Transit**: HTTPS for S3 transfer.
+*   **Access**: Raw data access is restricted to the **Data Science Team**. The inference API never sees the training CSVs.

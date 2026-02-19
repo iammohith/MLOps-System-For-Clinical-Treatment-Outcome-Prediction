@@ -1,15 +1,18 @@
-# 🎨 Clinical Web Interface
+# 🖥️ Frontend Dashboard
 
 <div align="center">
 
-![JavaScript](https://img.shields.io/badge/Language-Vanilla%20JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![CSS3](https://img.shields.io/badge/Style-CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-![API](https://img.shields.io/badge/API-Connected-green?style=for-the-badge)
+![JS](https://img.shields.io/badge/JavaScript-Vanilla_ES6-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![Nginx](https://img.shields.io/badge/Server-Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white)
+![CSS](https://img.shields.io/badge/Style-CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 
-**A lightweight, zero-dependency dashboard for clinical predictions.**
-*Verified for local execution.*
+**A lightweight, dependency-free clinical interface.**
+*Zero Frameworks. Maximum Performance.*
 
 [⬅️ Back to Root](../README.md)
+
+> [!TIP]
+> **For Clinical Researchers**: You do not need to run this component individually. Please use the [Quick Start Guide](../README.md) to launch the full system via Docker.
 
 </div>
 
@@ -19,197 +22,131 @@
 
 ### Purpose
 
-The Clinical Web Interface provides a user-friendly way for researchers and clinicians to interact with the Inference Model. It abstracts the JSON API into a structured form with client-side validation and visualization.
+The Frontend serves as the clinician's interface to the MLOps system. It is designed to be **minimalist** and **fast**.
+
+![MLOps Website](../MLOps%20Website.png)
 
 ### Business Problem
 
-* **Accessibility**: Clinicians are not coders; they cannot use `curl` or Postman to get predictions.
-* **Safety**: Manual JSON entry leads to typos and invalid data submissions.
+*   **Complex Toolchains**: Integrating massive React bundles for a simple internal tool creates technical debt.
+*   **Load Times**: Hospital networks can be slow; a 5MB bundle is unacceptable.
+*   **Security**: Client-side dependency vulnerabilities (npm supply chain attacks).
 
 ### Solution
 
-* **Zero Dependencies**: Built with Vanilla JS and CSS. No `node_modules`, no build step, no Webpack. Instant load times.
-* **Schema-Driven**: Dropdowns are populated dynamically from the Backend API, ensuring the UI never drifts from the `params.yaml` configuration.
+*   **Vanilla JS**: Uses standard ES6+ JavaScript supported by all modern browsers.
+*   **Nginx Serving**: Delivered as static assets via a hardened Nginx container.
+*   **Dynamic UX**: Features smooth animations (SVG gauges) and responsive error handling without external libraries.
 
 ### Architectural Positioning
 
-This is the **Presentation Layer**. It runs in the client's browser and is completely decoupled from the backend logic.
+This is the **Presentation Layer**. It is stateless and communicates with the *Inference API* via REST.
 
 ---
 
 ## 2. System Context & Architecture
 
-### System Context
-
 ```mermaid
 graph LR
-    User((Clinician)) --> Browser[Web Interface]
-    Browser -- "GET /dropdown-values" --> API[Inference API]
-    Browser -- "POST /predict" --> API
+    User((Clinician)) -->|Browser| UI[Frontend Container]
+    UI -->|Static Files| Nginx[Nginx Web Server]
+    UI -->|AJAX/Fetch| API[Inference API]
     
-    style Browser fill:#fff9c4,stroke:#fbc02d
+    style UI fill:#e3f2fd,stroke:#1565c0
     style API fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ### Interactions
 
-* **User**: Interacts with HTML Form.
-* **API**: Source of Truth for valid input values (enums) and Prediction logic.
-
-### Design Principles
-
-* **Progressive Enhancement**: Works as a basic form, enhanced with JS for dynamic updates.
-* **Keep It Simple (KISS)**: No framework (React/Vue) overhead for a single-page internal tool.
+1.  **Load**: Browser fetches `index.html`, `styles.css`, `app.js`.
+2.  **Init**: `app.js` calls `/dropdown-values` to populate form options from the server schema.
+3.  **Submit**: User submits form -> POST `/predict`.
+4.  **Render**: JS updates the SVG Gauge and Score Display.
 
 ---
 
-## 3. Component-Level Design
+## 3. Component Details (`app.js`)
 
-### Modules
+### Smart Routing (`getApiUrl`)
 
-| File | Role | Key Functions |
-| :--- | :--- | :--- |
-| `index.html` | **Structure** | Contains the semantic HTML5 form and result containers. |
-| `styles.css` | **Presentation** | Defines CSS Variables (Theming), Grid Layouts, and Animations. |
-| `app.js` | **Logic** | `fetchConfig()` (Init), `handlePredict()` (Form Submit), `renderResult()` (UI Update). |
+The app automatically detects its environment to handle CORS correctly or avoid it via Proxy.
 
----
-
-## 4. Data Design
-
-### State Management
-
-The application manages local state for form inputs and API responses. The flow is strictly unidirectional.
-
-1. **Init**: Fetch Valid Enums from `/dropdown-values`.
-2. **Input**: User fills form.
-3. **Submit**: Construct JSON payload consistent with `PredictionRequest` schema.
-4. **Render**: Display `Improvement_Score` or Error Message.
-
----
-
-## 5. API Design (Consumer)
-
-### Consumed Endpoints
-
-| Method | Endpoint | Use Case |
-| :--- | :--- | :--- |
-| `GET` | `/dropdown-values` | Populates `<select>` options on page load. |
-| `POST` | `/predict` | Sends payload, receives score. |
-
----
-
-## 6. Execution Flow
-
-### User Interaction
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant DOM as HTML Page
-    participant App as app.js
-    participant API as Backend Service
-
-    Note over App, API: Initialization
-    App->>API: GET /dropdown-values
-    API-->>App: {genders, drugs, ...}
-    App->>DOM: Populate <select> options
-
-    Note over User, API: Interaction
-    User->>DOM: Selects 'Hypertension'
-    User->>DOM: Clicks 'Predict'
-    DOM->>App: Event: submit
-    App->>API: POST /predict (JSON)
-    API-->>App: {score: 7.2}
-    App->>DOM: Render Result Card
+```javascript
+// Local Dev: Direct to API port 8000
+// Docker Prod: Relative path /api (handled by Nginx reverse proxy)
+const getApiUrl = () => {
+    if (window.location.hostname === 'localhost' && window.location.port === '8080') {
+        return 'http://localhost:8000';
+    }
+    return '/api';
+};
 ```
 
----
+### Key Functions
 
-## 7. Infrastructure & Deployment
-
-### Runtime
-
-* **Local**: `python -m http.server`
-* **Docker**: Nginx container serving static files.
-
-### Configuration
-
-* **API URL**: Hardcoded to `/api` (relative path) or `http://localhost:8000` depending on env.
-
----
-
-## 8. Security Architecture
-
-### Defenses
-
-* **Sanitization**: `innerText` is used instead of `innerHTML` to prevent XSS when rendering API responses.
-* **CORS**: The browser enforces CORS policies if the API is on a different domain.
-
----
-
-## 9. Performance & Scalability
-
-* **Load Time**: < 100kb total size. Instant loading.
-* **Caching**: Aggressive caching of static assets possible via Nginx.
-
----
-
-## 10. Reliability & Fault Tolerance
-
-* **API Down**: If `/dropdown-values` fails, the form disables itself and shows a "Service Unavailable" banner.
-* **Error Handling**: API errors (422/500) are parsed and displayed as user-friendly alerts.
-
----
-
-## 11. Observability
-
-* **Console Logs**: `console.error` used for debugging network failures.
-
----
-
-## 12. Testing Strategy
-
-### Valid Test Case
-
-| Field | Value |
+| Function | Responsibility |
 | :--- | :--- |
-| **Age** | `45` |
-| **Gender** | `Male` |
-| **Condition** | `Hypertension` |
-| **Drug** | `Amlodipine` |
-| **Dosage** | `50` |
-| **Duration** | `30` |
-
-*Expected*: Success Card with Score ~7.42.
+| `fetchDropdowns()` | Fetches valid options (Gender, Drug, etc.) from API to ensure form validity. |
+| `populateSelect()` | Dynamically fills `<select>` elements. |
+| `animateScore()` | Cubic-bezier eased counting animation for the result number. |
+| `setCircleProgress()` | SVG stroke-dashoffset calculation for the gauge visualization. |
+| `updateGradientColors()` | Changes gauge color based on risk level (Red/Orange/Blue). |
 
 ---
 
-## 13. Configuration
+## 4. Usage Guide
 
-No environment variables needed for the static frontend itself, other than Nginx config.
+### Running Locally (No Docker)
 
----
-
-## 14. Development Guide
-
-### Running Locally
+You can run the frontend using Python's built-in HTTP server for testing.
 
 ```bash
-# 1. Start API 
-make run-api
-
-# 2. Start Frontend
+# From project root
 make run-frontend
+# Serves at http://localhost:8080
 ```
 
-Access at `http://localhost:8080`.
+*Note: In this mode, ensure the `inference-api` is running on port 8000.*
+
+### Running via Docker (Production)
+
+```bash
+docker-compose -f infra/docker/docker-compose.yml up -d frontend
+```
 
 ---
 
-## 15. Future Improvements
+## 5. Security Architecture
 
-* **Offline Support**: Add Service Worker.
-* **History**: Save recent predictions to `localStorage`.
+### Content Security Policy (CSP)
+
+The Nginx configuration (`infra/docker/nginx.conf`) enforces strict CSP:
+
+*   `default-src 'self'`: Only load assets from same origin.
+*   `connect-src 'self' http://localhost:8000`: Allow API calls to backend (or localhost for dev).
+*   `script-src 'self' 'unsafe-inline'`: (Relaxed for this demo, strictly 'self' in high-security).
+
+### Input Validation
+
+*   **Client-Side**: HTML5 input types (`number`, `select`) provide first line of defense.
+*   **Consistency**: Dropdowns are populated from the API Source of Truth, preventing "Invalid Selection" errors.
 
 ---
+
+## 6. Development Guide
+
+### Folder Structure
+
+```
+frontend/
+├── index.html      # Structure & Layout
+├── styles.css      # Styling & Variables
+├── app.js          # Logic & API Glue
+└── README.md       # This file
+```
+
+### Adding a New Field
+
+1.  Add `<input>` or `<select>` in `index.html`.
+2.  Add field to payload object in `app.js` event listener.
+3.  Verify API accepts the new field (Update `inference/schemas.py`).

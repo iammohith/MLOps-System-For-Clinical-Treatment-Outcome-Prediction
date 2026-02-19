@@ -1,15 +1,17 @@
-# ⚡ Prediction Service (Inference)
+# 🚀 Inference Service
 
 <div align="center">
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-Production-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Security](https://img.shields.io/badge/Hardening-Enabled-blue?style=for-the-badge)
-![Metrics](https://img.shields.io/badge/Metrics-Prometheus-E6522C?style=for-the-badge&logo=prometheus)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Container-AppUser-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-**A hardened, schema-enforcing inference engine.**
-*Verified for local execution and containerized deployment.*
+**High-performance, schema-validated REST API for clinical outcome prediction.**
 
 [⬅️ Back to Root](../README.md)
+
+> [!TIP]
+> **For Non-Technical Users**: This is a backend service. You do not need to run this manually. Please use the [Quick Start Guide](../README.md) to launch the full system via Docker.
 
 </div>
 
@@ -19,245 +21,86 @@
 
 ### Purpose
 
-The Inference Service is the synchronous entry point for all model predictions. It exposes a REST API that accepts clinical patient data, validates it against a strict schema, and returns a treatment outcome improvement score.
+The Inference Service is the core runtime component of the MLOps system. It wraps the trained Scikit-Learn model in a robust FastAPI shell, handling request validation, prediction execution, and metric telemetry.
 
-### Business Problem
+### Key Capabilities
 
-Deploying ML models often introduces risks:
-
-* **Data Drift**: Input data format changes silently break the model.
-* **Security**: ML Models can be attack vectors (e.g., pickle injection, DOS).
-* **Visibility**: "Black box" services make debugging production failures impossible.
-
-### Solution
-
-This service addresses these by:
-
-* **Schema Enforcement**: Rejecting malformed data *before* it touches the model.
-* **Observability**: Emitting high-fidelity metrics for every request.
-* **Isolation**: Running in a secure, non-root container environment.
-
-### Architectural Positioning
-
-It acts as the **Gateway** between external clients (Frontend) and the internal Model Artifact. It is stateless and horizontally scalable.
+*   **Singleton Model Loading**: Efficiently loads the heavy model artifact once at startup (`ModelLoader`).
+*   **Strict Validation**: Uses Pydantic models to reject invalid medical data (e.g., negative Age) before it hits the model.
+*   **Observability**: Native Prometheus instrumentation for request rates, latencies, and prediction distributions.
+*   **Security**: Runs as non-root `appuser`, enforcing trusted host and CORS policies.
 
 ---
 
-## 2. System Context & Architecture
+## 2. API Reference
 
-### System Context
-
-```mermaid
-C4Context
-    title Inference Service Context
-
-    System_Boundary(inference_boundary, "Inference Service Scope") {
-        Container(api, "FastAPI App", "Python 3.10", "Handles HTTP requests and validation.")
-        Container(model, "Model Loader", "Joblib", "Loads and caches the model artifact.")
-    }
-
-    Container(frontend, "Frontend", "JS", "Sends prediction requests.")
-    Container(monitoring, "Prometheus", "Go", "Scrapes /metrics endpoint.")
-
-    Rel(frontend, api, "POST /predict", "JSON")
-    Rel(monitoring, api, "GET /metrics", "Http")
-```
-
-### Interactions
-
-* **Frontend**: Sends `POST /predict` requests.
-* **Prometheus**: Scrapes `GET /metrics`.
-* **Filesystem**: Reads `models/model.joblib` on startup.
-
-### Design Principles
-
-* **Fail-Fast**: If the model or config is missing, the service crashes immediately (allowing K8s to restart it), rather than serving 500 errors.
-* **Singleton Pattern**: The heavy model is loaded once globally, not per-request.
-
----
-
-## 3. Component-Level Design
-
-### Core Modules
-
-| Module | Responsibility | Dependencies | Public Interface |
-| :--- | :--- | :--- | :--- |
-| `app.py` | **Controller**. Application entry point, routing, middleware. | `fastapi`, `uvicorn` | `app` instance |
-| `schemas.py` | **DTOs**. Pydantic definitions for Request/Response objects. | `pydantic` | `PredictionRequest` |
-| `model_loader.py` | **Service**. Singleton class for safe model loading. | `joblib`, `sklearn` | `ModelLoader` |
-
-### Dependency Flow
-
-`app.py` -> `schemas.py` (Validation) -> `model_loader.py` (Inference)
-
----
-
-## 4. Data Design
-
-### Schema Structure
-
-Data validation is strict and defined in `inference/schemas.py`.
-
-* **Input**: `PredictionRequest`
-  * `Patient_ID`: String
-  * `Age`: Int (18-79)
-  * `Gender`: Enum (Male/Female)
-  * ...
-* **Output**: `PredictionResponse`
-  * `Improvement_Score`: Float
-  * `model_version`: String hash
-
-### Validation Rules
-
-All rules are sourced from `params.yaml` to ensure the API matches the training data exactly.
-
----
-
-## 5. API Design
-
-### Principles
-
-* **RESTful**: Standard HTTP verbs and status codes.
-* **Stateless**: No client context stored.
-* **Self-Documenting**: OpenAPI (Swagger) specs generated automatically.
+The API runs on port **8000** by default. Full interactive documentation triggers at `/docs`.
 
 ### Endpoints
 
-| Method | Endpoint | Description | Auth |
+| Method | Path | Description | Access |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/predict` | Main inference endpoint. Returns score. | Internal |
-| `GET` | `/health` | Liveness check. Returns 503 if model not loaded. | No |
-| `GET` | `/metrics` | Prometheus metrics scrape target. | No |
-| `GET` | `/dropdown-values` | Returns valid enum values for frontend forms. | No |
+| `GET` | `/health` | Liveness/Readiness probe. Returns `503` if model not loaded. | Public |
+| `POST` | `/predict` | Main inference endpoint. Accepts JSON payload. | Public |
+| `GET` | `/metrics` | Prometheus scrape target (Text format). | Prometheus |
+| `GET` | `/dropdown-values` | Returns valid enum values for Frontend forms. | Frontend |
 
----
+### Prediction Payload Schema
 
-## 6. Execution Flow
-
-### Request Lifecycle
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Security as Security Middleware
-    participant Validator as Pydantic Schema
-    participant Controller as Endpoint Logic
-    participant Model as Model Singleton
-
-    Client->>Security: POST /predict
-    Security->>Security: Verify Host Header
-    Security->>Security: Verify CORS Origin
-    
-    Security->>Validator: Parse Body
-    alt Invalid Schema
-        Validator-->>Client: 422 Unprocessable Entity (Detailed Error)
-    else Valid Schema
-        Validator->>Controller: Typed Object
-        Controller->>Model: predict(features)
-        Model-->>Controller: Prediction (float)
-        Controller-->>Client: 200 OK (JSON)
-    end
+```json
+{
+  "Patient_ID": "P12345",
+  "Age": 45,
+  "Gender": "Male",
+  "Condition": "Diabetes",
+  "Drug_Name": "Metformin",
+  "Dosage_mg": 500.0,
+  "Treatment_Duration_days": 30,
+  "Side_Effects": "None"
+}
 ```
 
 ---
 
-## 7. Infrastructure & Deployment
+## 3. Observability Code (Prometheus)
 
-### Runtime
+We do not use a sidecar for metrics; the application instrument itself using `prometheus_client`.
 
-* **Base Image**: `python:3.11-slim`
-* **Server**: Uvicorn (ASGI)
-
-### Configuration
-
-Environment variables control behavior:
-
-* `MODEL_PATH`: Path to `.joblib` file.
-* `PREPROCESSOR_PATH`: Path to preprocessor.
-
----
-
-## 8. Security Architecture
-
-### Defenses
-
-* **Host Header Validation**: `TrustedHostMiddleware` prevents Host header attacks.
-* **CORS Policy**: `CORSMiddleware` restricts browser access to specific origins.
-* **Security Headers**: Custom Middleware enforces HSTS, X-Content-Type-Options, CSP.
-* **Information Hiding**: Internal exceptions are caught; generic errors returned to client.
-
----
-
-## 9. Performance & Scalability
-
-* **Latency**: Typical inference time < 50ms (Random Forest).
-* **Throughput**: Limited by CPU.
-* **Scaling**: Stateless design allows infinite horizontal scaling (add more pods).
-
----
-
-## 10. Reliability & Fault Tolerance
-
-* **Startup Checks**: Service verifies model existence on boot.
-* **Timeout Handling**: Uvicorn handles request timeouts.
-* **Graceful Degradation**: If model fails, `/health` returns 503, removing the pod from LoadBalancer rotation.
-
----
-
-## 11. Observability
-
-### Metrics
-
-We expose standard RED metrics (Rate, Errors, Duration) plus business metrics:
-
-* `api_request_total`: Operations traffic.
-* `api_prediction_total`: Successful predictions.
-* `model_info`: Version tracking.
-
-### Logging
-
-Structured JSON logging for automated ingestion (ELK/Splunk).
-
----
-
-## 12. Testing Strategy
-
-* **Unit Tests**: Verify `ModelLoader` behavior.
-* **Integration Tests**: `make validate` spins up the API and curls it.
-
----
-
-## 13. Configuration Table
-
-| Variable | Type | Default | Description |
+| Metric Name | Type | Labels | Description |
 | :--- | :--- | :--- | :--- |
-| `MODEL_PATH` | Path | `models/model.joblib` | Logic artifact path. |
-| `PORT` | Int | `8000` | Listening port. |
+| `api_request_total` | Counter | `method`, `endpoint`, `status` | Total incoming HTTP requests. |
+| `api_prediction_total` | Counter | None | Total successful predictions. |
+| `api_prediction_errors_total` | Counter | None | Total failed predictions (5xx/4xx). |
+| `api_request_duration_seconds`| Histogram| `endpoint` | Request latency buckets. |
+| `model_info` | Gauge | `version` | Currently loaded model SHA-256 hash. |
 
 ---
 
-## 14. Development Guide
+## 4. Security Architecture
+
+The application (`app.py`) implements a defense-in-depth middleware chain:
+
+1.  **TrustedHostMiddleware**: Rejects requests with invalid `Host` headers.
+2.  **CORSMiddleware**: strictly controls cross-origin access (Configured via `ALLOWED_ORIGINS` env var).
+3.  **Security Headers**: Injects `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `CSP`, etc.
+4.  **Request Logging**: Audits all access with timing data.
+
+---
+
+## 5. Development Guide
 
 ### Running Locally
 
 ```bash
-# 1. Generate Model
-make run-pipeline
+# Install dependencies
+pip install -r requirements-inference.txt
 
-# 2. Start API
-make run-api
+# Run Uvicorn
+uvicorn inference.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Debugging
+### Configuration ( Environment Variables)
 
-* Check `/docx` for Swagger UI.
-* Check `/metrics` for internal state.
-
----
-
-## 15. Future Improvements
-
-* **Async Interface**: Add Celery for long-running batch predictions.
-* **GRPC Support**: For lower-latency internal communication.
-
----
+*   `MODEL_PATH`: Path to `.joblib` model (Default: `models/model.joblib`).
+*   `PREPROCESSOR_PATH`: Path to preprocessor (Default: `data/processed/preprocessor.joblib`).
+*   `ALLOWED_ORIGINS`: Comma-separated list of CORS origins (Default: `http://localhost:8080`).
