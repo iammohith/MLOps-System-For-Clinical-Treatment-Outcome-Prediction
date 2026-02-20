@@ -266,3 +266,12 @@ Update `params.yaml`, then run `make run-pipeline` to ensure validations propaga
 - **Scalability Constraint**: Local file system used for model artifacts. Should be migrated to an S3/GCS bucket registry for distributed deployments.
 - **Refactoring Opportunity**: Migrate DVC pipeline shell commands into a managed orchestrator like Airflow or Prefect for enhanced operational logging.
 - **Testing**: Expand `pytest` coverage specifically for edge-case inference routing scenarios.
+
+## 16. Contributing & Community
+
+Contributions are welcome! Please see our:
+- [🤝 Contributing Guidelines](CONTRIBUTING.md)
+- [⚖️ Code of Conduct](CODE_OF_CONDUCT.md)
+
+### License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
