@@ -36,6 +36,11 @@ const modelVersion = document.getElementById('model-version');
 const interpretationDot = document.getElementById('interpretation-dot');
 const interpretationText = document.getElementById('interpretation-text');
 const scoreInterpretation = document.getElementById('score-interpretation');
+const validationToast = document.getElementById('validation-toast');
+const validationMessage = document.getElementById('validation-message');
+
+// Global variable to store valid combinations
+let validCombinations = [];
 
 // Circle constants
 const CIRCLE_RADIUS = 85;
@@ -173,6 +178,9 @@ async function fetchDropdowns() {
         populateSelect('side-effects', data.side_effects);
         populateSelect('dosage', data.dosages);
 
+        // Store valid combinations
+        validCombinations = data.valid_combinations || [];
+
     } catch (err) {
         console.error("Error loading dropdowns:", err);
         showError("Failed to load form options. Please ensure API is running.");
@@ -193,12 +201,60 @@ function populateSelect(id, values) {
 // Initialize
 fetchDropdowns();
 
+// --- Validation Logic ---
+function validateCombination() {
+    const condition = document.getElementById('condition').value;
+    const drugName = document.getElementById('drug-name').value;
+    const dosage = document.getElementById('dosage').value;
+    const sideEffects = document.getElementById('side-effects').value;
+
+    // Only validate if all 4 are selected
+    if (!condition || !drugName || !dosage || !sideEffects) {
+        validationToast.style.display = 'none';
+        submitBtn.disabled = false;
+        return;
+    }
+
+    if (!validCombinations || validCombinations.length === 0) return;
+
+    const dosageFloat = parseFloat(dosage);
+
+    // Check if the exact combination exists
+    const isValid = validCombinations.some(c =>
+        c.Condition === condition &&
+        c.Drug_Name === drugName &&
+        c.Dosage_mg === dosageFloat &&
+        c.Side_Effects === sideEffects
+    );
+
+    if (!isValid) {
+        validationToast.style.display = 'flex';
+        validationMessage.textContent = `Invalid Combination: '${condition}' treated with '${drugName}' (${dosageFloat}mg) causing '${sideEffects}' is not clinically recorded in the dataset.`;
+        submitBtn.disabled = true;
+    } else {
+        validationToast.style.display = 'none';
+        submitBtn.disabled = false;
+    }
+}
+
+// Add event listeners for live validation
+['condition', 'drug-name', 'dosage', 'side-effects'].forEach(id => {
+    document.getElementById(id).addEventListener('change', validateCombination);
+});
+
 /**
  * Handle form submission
  */
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    // Double check validation on submit just in case
+    validateCombination();
+    if (submitBtn.disabled) {
+        setLoading(false);
+        return;
+    }
 
     const payload = {
         Patient_ID: document.getElementById('patient-id').value.trim(),

@@ -119,6 +119,17 @@
                             </div>
                         </div>
 
+                        <!-- Validation Error Toast -->
+                        <div id="validation-toast" class="validation-toast" style="display: none;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <span id="validation-message">Invalid combination selected.</span>
+                        </div>
+
                         <button type="submit" class="submit-btn" id="submit-btn">
                             <span class="btn-text">Predict Outcome</span>
                             <span class="btn-loader" id="btn-loader"></span>

@@ -20,7 +20,7 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 COPY inference/ inference/
 COPY params.yaml .
 COPY models/ models/
-COPY data/processed/preprocessor.joblib data/processed/preprocessor.joblib
+COPY data/processed/ data/processed/
 
 # Set ownership
 RUN chown -R appuser:appuser /app

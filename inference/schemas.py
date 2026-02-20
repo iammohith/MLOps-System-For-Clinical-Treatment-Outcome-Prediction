@@ -5,8 +5,9 @@ Enforces exact CSV schema — inference hard-fails on schema violations.
 """
 
 import os
+import json
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # --- Load Schema from params.yaml ---
@@ -21,6 +22,19 @@ if not os.path.exists(PARAMS_PATH):
 with open(PARAMS_PATH, "r") as f:
     _params = yaml.safe_load(f)
     _schema = _params["schema"]
+
+# Load valid combinations extract
+COMBOS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "processed", "valid_combinations.json"
+)
+
+VALID_COMBINATIONS = []
+if os.path.exists(COMBOS_PATH):
+    with open(COMBOS_PATH, "r") as f:
+        VALID_COMBINATIONS = json.load(f)
+else:
+    # Fallback to empty if not found during early init
+    VALID_COMBINATIONS = []
 
 
 VALID_GENDERS      = _schema.get("gender_values", [])
@@ -119,6 +133,29 @@ class PredictionRequest(BaseModel):
             )
         return v
 
+    @model_validator(mode="after")
+    def validate_scientific_combination(self) -> 'PredictionRequest':
+        if not VALID_COMBINATIONS:
+            return self
+
+        # Check if the combination exists in valid combinations
+        is_valid = False
+        for combo in VALID_COMBINATIONS:
+            if (combo["Condition"] == self.Condition and
+                combo["Drug_Name"] == self.Drug_Name and
+                combo["Dosage_mg"] == self.Dosage_mg and
+                combo["Side_Effects"] == self.Side_Effects):
+                is_valid = True
+                break
+
+        if not is_valid:
+            raise ValueError(
+                f"Invalid combination: Condition='{self.Condition}', "
+                f"Drug='{self.Drug_Name}', Dosage={self.Dosage_mg}mg, "
+                f"Side Effects='{self.Side_Effects}'. This approach does not scientifically align with the records. Please ensure combinations are clinically valid based on the dataset."
+            )
+        return self
+
 
 class PredictionResponse(BaseModel):
     """Schema for prediction API response."""
@@ -163,3 +200,4 @@ class DropdownValues(BaseModel):
     drugs: list[str]        = Field(default_factory=lambda: VALID_DRUGS)
     side_effects: list[str] = Field(default_factory=lambda: VALID_SIDE_EFFECTS)
     dosages: list[float]    = Field(default_factory=lambda: VALID_DOSAGES)
+    valid_combinations: list[dict] = Field(default_factory=lambda: VALID_COMBINATIONS)

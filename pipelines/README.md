@@ -5,87 +5,148 @@
 ![DVC](https://img.shields.io/badge/Orchestrator-DVC-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
 ![DAG](https://img.shields.io/badge/Architecture-DAG-blue?style=for-the-badge)
 
-**The production pipeline for reproducible model training.**
+**The production pipeline for reproducible model training and data transformation.**
 
 [⬅️ Back to Root](../README.md)
-
-> [!TIP]
-> **For Managers**: You can reproduce the entire pipeline by running `make run-pipeline` from the root directory.
 
 </div>
 
 ---
 
-## 1. The Pipeline DAG
+## 1. Executive Overview
 
-The Directed Acyclic Graph (DAG) is defined in `dvc.yaml`. It ensures that every step is cached and only re-run if its dependencies (code or data) change.
+### Purpose
+The `pipelines/` module orchestrates the offline Directed Acyclic Graph (DAG) for data ingestion, cleaning, validation, preprocessing, and model training. 
 
-```mermaid
-graph LR
-    Raw[Raw CSV] --> Ingest
-    Ingest[ingest.py] --> Ingested[ingested.csv]
-    Ingested --> Validate
-    Validate[validate.py] --> Validated[validated.csv]
-    Validated --> Preprocess
-    Preprocess[preprocess.py] --> Train
-    Preprocess --> Test[Test Set]
-    Train[train.py] --> Model[model.joblib]
-    Test --> Evaluate
-    Model --> Evaluate
-    Evaluate[evaluate.py] --> Metrics[scores.json]
+### Business & Technical Problems Solved
+- **Business**: Clinical research relies entirely on provable reproduciblity. "It worked yesterday" is an invalid excuse in audited medical environments.
+- **Technical**: Avoids bloated shell scripts that blindly execute the entire pipeline when only a single downstream variable changed. DVC natively caches unchanged intermediate steps, slashing iteration time. 
 
-    style Raw fill:#f9f,stroke:#333
-    style Model fill:#f96,stroke:#333
-    style Metrics fill:#ff9,stroke:#333
-```
+### Role Within the System
+The "Data Factory". It connects raw datasets from the `data/` module, passes them through validations, and hands the preprocessed artifacts over to the `training/` module.
 
----
-
-## 2. Stages & Artifacts
-
-| Stage | Script | Input | Output | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Ingest** | `pipelines/ingest.py` | `raw/real_drug_dataset.csv` | `processed/ingested.csv` | Immutable copy of raw data. |
-| **Validate** | `pipelines/validate.py` | `processed/ingested.csv` | `processed/validated.csv` | Schema enforcement. Fails pipeline on invalid data. |
-| **Preprocess** | `pipelines/preprocess.py` | `processed/validated.csv` | `X_train`, `y_test`, etc. | Splitting (80/20) and Feature Engineering. |
-| **Train** | `training/train.py` | `X_train.csv`, `y_train.csv` | `models/model.joblib` | Training RandomForestRegressor. |
-| **Evaluate** | `training/evaluate.py` | `model.joblib`, `X_test.csv` | `metrics/scores.json` | Calculating RMSE/R². |
-
----
-
-## 3. Configuration (`params.yaml`)
-
-The pipeline execution is controlled by `params.yaml`. Key tuning parameters:
-
-```yaml
-model:
-  n_estimators: 200     # Number of trees
-  max_depth: 15         # Tree depth
-  min_samples_split: 5  # Node split threshold
-```
-
----
-
-## 4. Usage
-
-### Reproduce the Pipeline
-
-To run the entire end-to-end flow:
-
+### High-Level Instructions
 ```bash
+# Execute the entire DAG. Will skip cached phases automatically.
 dvc repro
 ```
 
-### Run a Specific Stage
+---
 
-To run only the validation step (and its dependencies):
+## 2. System Context & Architecture
 
-```bash
-dvc repro validate
+### DAG Flow Architecture
+
+```mermaid
+graph TD
+    Raw[(Raw CSV)] -->|Ingest Stage| Ingest[ingest.py]
+    Ingest -->|Writes| Ingested[(ingested.csv)]
+    Ingested -->|Validate Stage| Validate[validate.py]
+    Validate -->|Filter vs Schema| Validated[(validated.csv)]
+    Validated -->|Preprocess Stage| Preproc[preprocess.py]
+    Preproc -->|Outputs Matrices| X_train[(X_train, y_train, etc.)]
+    X_train -->|Train Stage| Train[train.py]
 ```
 
-### Visualize the DAG
+### Architectural Principles
+- **Idempotency**: Given the exact same raw data hash and `params.yaml` configuration, the pipeline is mathematically guaranteed to emit the identical serialized artifact.
+- **Modular Nodes**: Each Python script inside the pipeline is strictly bound to one responsibility (e.g., `preprocess.py` focuses entirely on Scikit-Learn scaling operations without caring about ingestion logic).
 
+---
+
+## 3. Component-Level Design
+
+### Core Modules
+
+1. **`dvc.yaml`**
+   - **Responsibility**: The master blueprint. Explicitly defines the graph edges, binding scripts to their input dependencies (`deps`) and expected outputs (`outs`).
+2. **`pipelines/ingest.py`**
+   - **Responsibility**: Extracts tracking schemas. Generates `ingested.csv` from raw external references.
+3. **`pipelines/validate.py`**
+   - **Responsibility**: Schema enforcement. Executes Pydantic bounds checks against the raw Pandas DataFrame using standard values defined in `params.yaml`.
+4. **`pipelines/preprocess.py`**
+   - **Responsibility**: Normalization and Encodings. Executes train_test_split. Compiles and dumps the Scikit-Learn `ColumnTransformer` Pipeline artifact (`preprocessor.joblib`).
+5. **`pipelines/extract_combinations.py`**
+   - **Responsibility**: Scans clinical data to construct the `valid_combinations.json` constraint matrix used dynamically by the Inference API zero-trust framework.
+
+---
+
+## 4. Data Design
+*(Refer to `data/README.md` for explicit CSV schema constraints)*
+
+---
+
+## 5. API Design
+*(Not applicable to offline Python batch jobs)*
+
+---
+
+## 6. Execution Flow
+
+### State Transitions (Caching Logic)
+DVC tracks state via MD5 hashing. 
+1. If `real_drug_dataset.csv` changes, DVC invalidates the cache and reruns all steps.
+2. If `params.yaml` -> `max_depth` changes, DVC recognizes the Data steps are untouched and utilizes the cache, bypassing ingestion/preprocessing and immediately triggering the Training script.
+
+---
+
+## 7. Infrastructure & Deployment
+Pipelines are inherently offline operational scripts. They are executed within ephemeral CI runners (GitHub Actions / GitLab CI) or locally on developer machines via virtual environments. They are never pushed into the Docker orchestration runtime.
+
+---
+
+## 8. Security Architecture
+The extraction boundary operates entirely locally. Validated raw data is blocked from transit via `.gitignore`. 
+
+---
+
+## 9. Performance & Scalability
+- **Memory Profiling**: Current pipeline steps construct Pandas DataFrames entirely in RAM. Scalability limits correlate directly to host machine memory bounds.
+- **Disk I/O**: The pipeline makes heavy use of localized POSIX disk storage. Performance benefits drastically from NVMe disk architectures over spinning HDDs.
+
+---
+
+## 10. Reliability & Fault Tolerance
+- **Strict Failure Handling**: Any Python exception generated (e.g., Validation Failure inside `validate.py`) cascades up as a non-zero exit code. DVC immediately aborts the pipeline, preventing broken artifacts from proceeding down the DAG.
+
+---
+
+## 11. Observability
+- **DAG Visualization**: Developers can observe the structural dependency graph statically.
 ```bash
 dvc dag
 ```
+
+---
+
+## 12. Testing Strategy
+- **Contract Verification Check**: Pipeline code must reliably execute standard unit tests targeting normalization edges prior to deployment.
+- **Integration Run**: `make validate` ensures the full pipeline completes end-to-end flawlessly on sample datasets without crashing.
+
+---
+
+## 13. Configuration & Environment Variables
+Configured comprehensively via `params.yaml`.
+
+| Key Tree | Example Value | Description |
+| :--- | :--- | :--- |
+| `schema.numeric_features` | `['Age', 'Dosage_mg']` | Feeds the StanderScaler preprocessor logic. |
+| `schema.categorical_features` | `['Condition']` | Feeds the OneHotEncoder logic. |
+
+---
+
+## 14. Development Guide
+
+### Running Specific Stages
+If modifying only the evaluation script, you do not need to wait for retraining:
+```bash
+# Will only execute evaluating layers, using cached models
+dvc repro evaluate
+```
+
+---
+
+## 15. Future Improvements / Technical Debt
+
+- **Distributed Orchestration**: While DVC is excellent for repository-level pipelines, enterprise scaling may necessitate migrating these nodes into Airflow or Prefect to handle distributed cross-cluster DAG execution logic for terabyte-scale payloads.
+- **Feature Store Pushing**: Implement an explicit phase after preprocessing to push embedded feature matrices into a centralized Redis/Feast store for faster Online Inference retrieval.

@@ -245,6 +245,35 @@ input::placeholder {
     color: var(--text-muted);
 }
 
+/* ---- Validation Toast ---- */
+.validation-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    font-size: 0.875rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.validation-toast svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    stroke: #ef4444;
+}
+
+.submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+
 /* ---- Submit Button ---- */
 .submit-btn {
     width: 100%;

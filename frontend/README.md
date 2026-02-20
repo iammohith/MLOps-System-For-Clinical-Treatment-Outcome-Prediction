@@ -7,12 +7,8 @@
 ![CSS](https://img.shields.io/badge/Style-CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 
 **A lightweight, dependency-free clinical interface.**
-*Zero Frameworks. Maximum Performance.*
 
 [⬅️ Back to Root](../README.md)
-
-> [!TIP]
-> **For Clinical Researchers**: You do not need to run this component individually. Please use the [Quick Start Guide](../README.md) to launch the full system via Docker.
 
 </div>
 
@@ -21,132 +17,168 @@
 ## 1. Executive Overview
 
 ### Purpose
+The `frontend/` module provides a clinical dashboard GUI allowing medical researchers to input patient telemetry and receive instantaneous predicted outcome improvements. 
 
-The Frontend serves as the clinician's interface to the MLOps system. It is designed to be **minimalist** and **fast**.
+### Business & Technical Problems Solved
+- **Business**: Clinicians require a zero-friction, highly readable interface to evaluate treatment regimens. 
+- **Technical**: Heavy Single Page Application (SPA) frameworks like React or Angular introduce sprawling node_modules, npm audit vulnerabilities, and bloated bundle sizes. This module solves that by employing a zero-dependency Vanilla ES6 architecture, served as hyper-fast static assets.
 
-![MLOps Website](../MLOps%20Website.png)
+### Role Within the System
+This is the Presentation Layer. It is completely stateless, relying on the Inference API for all schema logic and model execution.
 
-### Business Problem
-
-*   **Complex Toolchains**: Integrating massive React bundles for a simple internal tool creates technical debt.
-*   **Load Times**: Hospital networks can be slow; a 5MB bundle is unacceptable.
-*   **Security**: Client-side dependency vulnerabilities (npm supply chain attacks).
-
-### Solution
-
-*   **Vanilla JS**: Uses standard ES6+ JavaScript supported by all modern browsers.
-*   **Nginx Serving**: Delivered as static assets via a hardened Nginx container.
-*   **Dynamic UX**: Features smooth animations (SVG gauges) and responsive error handling without external libraries.
-
-### Architectural Positioning
-
-This is the **Presentation Layer**. It is stateless and communicates with the *Inference API* via REST.
+### High-Level Instructions
+```bash
+# To run locally for development without Docker:
+python3 -m http.server 8080 --directory frontend/
+```
+In production, this module is baked into an Nginx Alpine container.
 
 ---
 
 ## 2. System Context & Architecture
 
+### System Context Diagram
+
 ```mermaid
 graph LR
-    User((Clinician)) -->|Browser| UI[Frontend Container]
-    UI -->|Static Files| Nginx[Nginx Web Server]
-    UI -->|AJAX/Fetch| API[Inference API]
+    User((Clinician)) -->|HTTPS| Nginx[Frontend Container: Nginx]
+    Nginx -->|Serves Static Files| Browser[Client Browser]
+    Browser -->|REST API POST| API[Inference API Container]
     
-    style UI fill:#e3f2fd,stroke:#1565c0
+    style Nginx fill:#e3f2fd,stroke:#1565c0
     style API fill:#e8f5e9,stroke:#2e7d32
 ```
 
-### Interactions
-
-1.  **Load**: Browser fetches `index.html`, `styles.css`, `app.js`.
-2.  **Init**: `app.js` calls `/dropdown-values` to populate form options from the server schema.
-3.  **Submit**: User submits form -> POST `/predict`.
-4.  **Render**: JS updates the SVG Gauge and Score Display.
+### Architectural Principles
+- **Separation of Concerns**: The frontend contains zero business logic regarding medical validity; it dynamically queries the backend (`/dropdown-values`) to render state.
+- **Progressive Enhancement**: Native HTML5 form validation acts as a rudimentary filter before JS-driven payload compilation.
 
 ---
 
-## 3. Component Details (`app.js`)
+## 3. Component-Level Design
 
-### Smart Routing (`getApiUrl`)
+### Core Files
 
-The app automatically detects its environment to handle CORS correctly or avoid it via Proxy.
+1. **`index.html`**
+   - **Responsibility**: Semantic DOM structure and accessibility markers (aria-labels).
+2. **`styles.css`**
+   - **Responsibility**: CSS variables (custom properties) for theming, flex/grid layouts, and SVG gauge stroke-dashoffset animations.
+3. **`app.js`**
+   - **Responsibility**: Event listener binding, DOM manipulation, and asynchronous HTTP fetch routines to the Inference API.
+
+---
+
+## 4. Data Design
+*(Not applicable. See `inference/` or `data/` READMEs for schema definitions.)*
+
+---
+
+## 5. API Design
+*(Not applicable. This component acts exclusively as an API consumer.)*
+
+---
+
+## 6. Execution Flow
+
+### Form Submission Sequence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant DOM
+    participant AppJS
+    participant InferenceAPI
+
+    User->>DOM: Fills out form inputs
+    User->>DOM: Clicks "Predict Outcome"
+    DOM->>AppJS: Fires `submit` event
+    AppJS->>AppJS: `validateCombination()` checks strict UI bounds
+    AppJS->>DOM: Sets Button to Loading state
+    AppJS->>InferenceAPI: `fetch(POST /predict)`
+    InferenceAPI-->>AppJS: HTTP 200 { Improvement_Score: 7.2 }
+    AppJS->>DOM: `animateScore(7.2)` and `setCircleProgress()`
+    DOM-->>User: Visual feedback rendered
+```
+
+---
+
+## 7. Infrastructure & Deployment
+
+### Runtime Environment
+In production, the static files are copied into an `nginx:alpine` image.
+
+### Containerization Strategy
+Multi-stage build is unnecessary as there is no compilation step (no Webpack/Babel). Static files are dumped directly into `/usr/share/nginx/html`.
+
+---
+
+## 8. Security Architecture
+
+### Content Security Policy (CSP)
+Hardened via the Nginx configuration:
+- `default-src 'self'`: Thwarts basic XSS injections.
+- `connect-src 'self' http://localhost:8000`: Restricts fetch requests exclusively to the defined API upstream.
+
+### Client-Side Security Limitations
+All client-side validation logic is assumed hostile. The Backend Inference API re-validates all payloads using server-side Pydantic models.
+
+---
+
+## 9. Performance & Scalability
+
+- **Bundle Size**: < 20KB total (HTML + CSS + JS combined). Loads instantly even on heavily congested hospital intranets.
+- **Rendering**: Hardware-accelerated CSS properties ensure the SVG gauge animation hits 60fps without triggering main-thread JS reflows.
+
+---
+
+## 10. Reliability & Fault Tolerance
+
+- **API Fallbacks**: If the REST API endpoint is unreachable or returns a 5xx error, the `catch` block intercepts the payload and invokes `showError()`. This safely updates the DOM to display a user-friendly crash message instead of silently failing.
+
+---
+
+## 11. Observability
+*(Not applicable. Standard Nginx access logs are monitored at the infrastructure level.)*
+
+---
+
+## 12. Testing Strategy
+Currently tested via manual QA (End-to-End). 
+*Recommendation: Implement Playwright or Cypress for headless E2E testing in future CI iterations.*
+
+---
+
+## 13. Configuration & Environment Variables
+
+### Smart Routing
+The application uses environment-aware routing instead of `.env` files for the browser context:
 
 ```javascript
-// Local Dev: Direct to API port 8000
-// Docker Prod: Relative path /api (handled by Nginx reverse proxy)
 const getApiUrl = () => {
+    // If running in local non-docker dev
     if (window.location.hostname === 'localhost' && window.location.port === '8080') {
         return 'http://localhost:8000';
     }
+    // Production Docker Nginx reverse proxy
     return '/api';
 };
 ```
 
-### Key Functions
+---
 
-| Function | Responsibility |
-| :--- | :--- |
-| `fetchDropdowns()` | Fetches valid options (Gender, Drug, etc.) from API to ensure form validity. |
-| `populateSelect()` | Dynamically fills `<select>` elements. |
-| `animateScore()` | Cubic-bezier eased counting animation for the result number. |
-| `setCircleProgress()` | SVG stroke-dashoffset calculation for the gauge visualization. |
-| `updateGradientColors()` | Changes gauge color based on risk level (Red/Orange/Blue). |
+## 14. Development Guide
+
+### Adding New Features
+1. Append the new HTML input to `index.html`.
+2. Add the element ID mapping inside the POST payload of `app.js`.
+3. If it requires validation, append it to the `validateCombination` listener array.
+
+### Debugging Approach
+Use standard Chrome/Firefox DevTools. All variables are globally scoped or block-scoped without minification mapping, making breakpoint insertion trivial.
 
 ---
 
-## 4. Usage Guide
+## 15. Future Improvements / Technical Debt
 
-### Running Locally (No Docker)
-
-You can run the frontend using Python's built-in HTTP server for testing.
-
-```bash
-# From project root
-make run-frontend
-# Serves at http://localhost:8080
-```
-
-*Note: In this mode, ensure the `inference-api` is running on port 8000.*
-
-### Running via Docker (Production)
-
-```bash
-docker-compose -f infra/docker/docker-compose.yml up -d frontend
-```
-
----
-
-## 5. Security Architecture
-
-### Content Security Policy (CSP)
-
-The Nginx configuration (`infra/docker/nginx.conf`) enforces strict CSP:
-
-*   `default-src 'self'`: Only load assets from same origin.
-*   `connect-src 'self' http://localhost:8000`: Allow API calls to backend (or localhost for dev).
-*   `script-src 'self' 'unsafe-inline'`: (Relaxed for this demo, strictly 'self' in high-security).
-
-### Input Validation
-
-*   **Client-Side**: HTML5 input types (`number`, `select`) provide first line of defense.
-*   **Consistency**: Dropdowns are populated from the API Source of Truth, preventing "Invalid Selection" errors.
-
----
-
-## 6. Development Guide
-
-### Folder Structure
-
-```
-frontend/
-├── index.html      # Structure & Layout
-├── styles.css      # Styling & Variables
-├── app.js          # Logic & API Glue
-└── README.md       # This file
-```
-
-### Adding a New Field
-
-1.  Add `<input>` or `<select>` in `index.html`.
-2.  Add field to payload object in `app.js` event listener.
-3.  Verify API accepts the new field (Update `inference/schemas.py`).
+- **Build Tooling**: If the JS file grows beyond 1,000 lines, introduce Vite.js to enable modular imports (`import { x } from './utils.js'`) and minification.
+- **State Management**: If multiple views (pages) are added, a lightweight router architecture (e.g., NanoRouter) should be implemented to manage the History API without refreshing.
