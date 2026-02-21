@@ -38,7 +38,7 @@ The proposed architecture introduces a "Store & Analyze" pattern using an asynch
 ```mermaid
 graph TD
     Client -->|POST /predict| API[Inference API]
-    API -->|Log Payload| Queue[Message Queue (Redis/Kafka)]
+    API -->|Log Payload| Queue["Message Queue (Redis/Kafka)"]
     API -->|Response| Client
     
     subgraph "Async Analysis Layer"
