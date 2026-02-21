@@ -27,7 +27,11 @@ install: $(VENV_DIR)/bin/activate
 dvc-init:
 	@if [ ! -d ".dvc" ]; then \
 		echo "Initializing DVC..."; \
-		. $(VENV_DIR)/bin/activate && dvc init; \
+		if [ -d ".git" ]; then \
+			. $(VENV_DIR)/bin/activate && dvc init; \
+		else \
+			. $(VENV_DIR)/bin/activate && dvc init --no-scm; \
+		fi \
 	else \
 		echo "DVC already initialized."; \
 	fi
@@ -35,18 +39,18 @@ dvc-init:
 	mkdir -p $(dvc_remote_dir)
 	. $(VENV_DIR)/bin/activate && dvc remote add -d local-remote $(dvc_remote_dir) -f
 
-run-pipeline: install
+run-pipeline: setup
 	. $(VENV_DIR)/bin/activate && dvc repro
 
-validate: install test
+validate: setup test
 	. $(VENV_DIR)/bin/activate && python validation/release_check.py
 
-test: install
-	. $(VENV_DIR)/bin/activate && pip install pytest httpx pytest-mock
+test: setup
+	. $(VENV_DIR)/bin/activate && pip install pytest "httpx<0.28.0" pytest-mock
 	. $(VENV_DIR)/bin/activate && pytest tests/ -v
 
 
-run-api: install
+run-api: run-pipeline
 	. $(VENV_DIR)/bin/activate && python -m uvicorn inference.app:app --host 0.0.0.0 --port 8000 --reload
 
 run-frontend:

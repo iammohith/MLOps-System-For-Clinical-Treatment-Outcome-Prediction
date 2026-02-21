@@ -233,3 +233,19 @@ stages:
       hash: md5
       md5: 3819df8be13d6205859195d9126ed3cf
       size: 76
+  extract_combinations:
+    cmd: python pipelines/extract_combinations.py
+    deps:
+    - path: data/raw/real_drug_dataset.csv
+      hash: md5
+      md5: dc979022479683b3e8b9b9b9a98e76ab
+      size: 58891
+    - path: pipelines/extract_combinations.py
+      hash: md5
+      md5: 9b4439a01b47b834ef89454fcf4f3db7
+      size: 1076
+    outs:
+    - path: data/processed/valid_combinations.json
+      hash: md5
+      md5: ddf7fdb15b78eeaf179b01d5c5cb2a2e
+      size: 27795

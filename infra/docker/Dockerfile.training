@@ -29,4 +29,4 @@ RUN mkdir -p data/processed models metrics && \
 USER appuser
 
 # Default: run the full DVC pipeline
-CMD ["dvc", "repro"]
+CMD ["/bin/bash", "-c", "if [ ! -d .dvc ]; then dvc init --no-scm -f; fi && dvc repro"]

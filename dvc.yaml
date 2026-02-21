@@ -11,6 +11,15 @@ stages:
       - data.raw_path
       - data.processed_dir
 
+  extract_combinations:
+    cmd: python pipelines/extract_combinations.py
+    deps:
+      - pipelines/extract_combinations.py
+      - data/raw/real_drug_dataset.csv
+    outs:
+      - data/processed/valid_combinations.json:
+          cache: false
+
   validate:
     cmd: python pipelines/validate.py
     deps:
