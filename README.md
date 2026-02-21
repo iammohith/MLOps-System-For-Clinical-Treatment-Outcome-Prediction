@@ -13,6 +13,8 @@
 
 **A production-hardened MLOps system for predicting clinical treatment outcomes.**
 
+![MLOps Dashboard](MLOps%20Website.png)
+
 </div>
 
 ---
@@ -22,11 +24,15 @@
 > One command deploys the entire stack: API, Frontend, Prometheus, and Grafana.
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/iammohith/MLOps-System-For-Clinical-Treatment-Outcome-Prediction.git
 cd MLOps-System-For-Clinical-Treatment-Outcome-Prediction
 
-# Deploy the full 4-container system
+# 2. Train the model & generate data artifacts (Requires Python 3.10+ and Make)
+make setup
+make run-pipeline
+
+# 3. Deploy the full 4-container system
 docker-compose -f infra/docker/docker-compose.yml up --build -d
 ```
 
@@ -107,7 +113,7 @@ C4Context
 
 | Decision | Rationale |
 | :--- | :--- |
-| Random Forest over Neural Networks | Tree-based models provide interpretable feature importances — critical for medical contexts |
+| Random Forest over Neural Networks | Tree-based models provide interpretable feature importances critical for medical contexts |
 | Pydantic over manual validation | Compile-time type safety with automatic OpenAPI schema generation |
 | Vanilla JS over React/Angular | Zero npm dependencies, < 20KB total, eliminates supply-chain attack surface |
 | DVC over MLflow for pipelines | Tight Git integration, file-hash-based caching, no external server dependency |
@@ -154,7 +160,7 @@ C4Context
 
 ### Module Documentation
 
-Each subdirectory contains a detailed README following the same 15-section architecture standard:
+Each subdirectory contains a detailed README following a consistent architectural standard:
 
 | Module | README | Responsibility |
 | :--- | :--- | :--- |
@@ -168,6 +174,7 @@ Each subdirectory contains a detailed README following the same 15-section archi
 | **Infrastructure** | [infra/README.md](infra/README.md) | Docker, Kubernetes, network topology |
 | **Monitoring** | [monitoring/README.md](monitoring/README.md) | Prometheus & Grafana stack |
 | **Validation** | [validation/README.md](validation/README.md) | CI/CD gates, release checklists |
+| **Tests** | [tests/README.md](tests/README.md) | Automated unit and integration testing boundaries |
 
 ---
 
@@ -356,6 +363,12 @@ The **Clinical Prediction API Dashboard** is auto-provisioned on startup via pro
 - Model Version (stat)
 - Request Volume 24h (bar gauge)
 
+#### Live Metrics Preview
+
+![Grafana Dashboard](Grafana%20Dashboard.png)
+
+![Prometheus Metrics](Prometheus%20Metrics.png)
+
 ### Logging
 
 - **API**: Request logging middleware outputs method, path, status code, and duration for every request
@@ -454,7 +467,7 @@ make validate
 
 ---
 
-## 15. Future Improvements / Technical Debt
+## 15. Future Improvements
 
 | Area | Improvement |
 | :--- | :--- |
@@ -478,3 +491,13 @@ Contributions are welcome! Please see our:
 ### License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**Made with ❤️ for the MLOps Community & Clinical Researchers**
+
+[⬆ Back to Top](#-mlops-system-clinical-treatment-outcome-prediction)
+
+</div>
