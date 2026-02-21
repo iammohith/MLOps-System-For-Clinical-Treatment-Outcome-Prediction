@@ -42,7 +42,8 @@ def load_params():
 
 
 def rmse_scorer(y_true, y_pred):
-    """Custom RMSE scorer for GridSearchCV."""
+    """Custom RMSE scorer for GridSearchCV.
+    Returns negative RMSE so GridSearchCV can maximize the score."""
     return -np.sqrt(mean_squared_error(y_true, y_pred))
 
 
@@ -83,13 +84,6 @@ def main():
         "max_depth": [10, 15, 20, None],
         "min_samples_split": [2, 5, 10],
         "min_samples_leaf": [1, 2, 4],
-    }
-
-    gb_param_grid = {
-        "n_estimators": [100, 200, 300],
-        "max_depth": [3, 5, 7],
-        "learning_rate": [0.01, 0.05, 0.1],
-        "min_samples_split": [2, 5],
     }
 
     scorer = make_scorer(rmse_scorer, greater_is_better=True)

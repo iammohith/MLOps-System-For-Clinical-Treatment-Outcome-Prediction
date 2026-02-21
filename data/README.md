@@ -35,6 +35,18 @@ git commit -m "chore(data): updated Q1 2026 Batch"
 dvc push
 ```
 
+### 📂 Directory Details
+
+This directory contains the data pipelines and intermediate artifacts used for model training and evaluation.
+
+#### Dataset Source
+The raw data comes from the [1000 drugs and side-effects dataset](https://www.kaggle.com/datasets/palakjain9/1000-drugs-and-side-effects) available on Kaggle.
+
+#### Structure
+
+- `raw/`: Unprocessed data ingested from upstream environments.
+- `processed/`: Features, labels, and preprocessor outputs post-pipeline execution.
+
 ---
 
 ## 2. System Context & Architecture

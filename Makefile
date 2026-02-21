@@ -38,8 +38,12 @@ dvc-init:
 run-pipeline: install
 	. $(VENV_DIR)/bin/activate && dvc repro
 
-validate: install
+validate: install test
 	. $(VENV_DIR)/bin/activate && python validation/release_check.py
+
+test: install
+	. $(VENV_DIR)/bin/activate && pip install pytest httpx pytest-mock
+	. $(VENV_DIR)/bin/activate && pytest tests/ -v
 
 
 run-api: install

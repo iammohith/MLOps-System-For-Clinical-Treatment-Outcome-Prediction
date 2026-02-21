@@ -68,7 +68,7 @@ graph TD
 ### Core Directories
 
 1. **`infra/docker/`**
-   - **Responsibility**: Local/Edge deployment definitions. Contains `Dockerfile.inference`, `Dockerfile.frontend`, and the monolithic `docker-compose.yml`.
+   - **Responsibility**: Local/Edge deployment definitions. Contains `Dockerfile.inference`, `Dockerfile.frontend`, `Dockerfile.training`, `docker-compose.yml`, and `nginx.conf`.
 2. **`infra/k8s/`**
    - **Responsibility**: Production cluster definitions mapping equivalent compose architectures into Scalable Deployments, Services, and Namespaces.
 
@@ -106,11 +106,12 @@ docker-compose -f infra/docker/docker-compose.yml up --build -d
 ```
 
 ### Kubernetes Topology (Production)
-Deployments are separated logically to prevent blast radii overlapping.
-- `00-namespace.yaml`: Hard boundary `mlops-system`.
-- `01-deployment.yaml`: Replicaset controllers ensuring desired state.
-- `02-service.yaml`: Internal ClusterIP DNS resolution.
-- `03-monitoring.yaml`: Dedicated metric scraping pods.
+Deployments are separated logically into individual YAML files to prevent blast radii overlapping.
+- `namespace.yaml`: Hard boundary `mlops-system`.
+- `inference-deployment.yaml` / `inference-service.yaml`: API compute and service discovery.
+- `frontend-deployment.yaml` / `frontend-service.yaml`: Web UI pods and NodePort (30880).
+- `prometheus-deployment.yaml` / `prometheus-service.yaml` / `prometheus-configmap.yaml`: Metric collection.
+- `grafana-deployment.yaml` / `grafana-service.yaml`: Dashboard visualization.
 
 ---
 

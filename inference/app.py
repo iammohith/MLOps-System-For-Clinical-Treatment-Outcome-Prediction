@@ -94,10 +94,9 @@ async def lifespan(app: FastAPI):
         logger.info(f"Model loaded successfully: {model_loader.version}")
     except Exception as e:
         logger.critical(f"CRITICAL: Failed to load model: {e}")
-        logger.critical("Service cannot start without model. Exiting...")
-        # STRICT: Fail Fast. 
-        # Do not start in a zombie state. Force orchestrator to restart.
-        raise e
+        logger.critical("Failed to load model on startup. Marking as unavailable.")
+        # DO NOT hard-crash. Let the service start but return 503 on health/predict
+        # This prevents orchestrator crash loop backoffs that block API inspection.
     
     yield
 
@@ -117,10 +116,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Enforce allowed hosts
+# Enforce allowed hosts (SEC-03: Dynamic host configuration)
+_hosts_str = os.environ.get("ALLOWED_HOSTS", "*")
+ALLOWED_HOSTS = [h.strip() for h in _hosts_str.split(",")]
+
 app.add_middleware(
     TrustedHostMiddleware, 
-    allowed_hosts=["localhost", "127.0.0.1", "inference-api"]
+    allowed_hosts=ALLOWED_HOSTS
 )
 
 # --- CORS ---
@@ -130,10 +132,14 @@ app.add_middleware(
 _origins_str = os.environ.get("ALLOWED_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080")
 ALLOWED_ORIGINS = [origin.strip() for origin in _origins_str.split(",")]
 
+_allow_credentials = True
+if "*" in ALLOWED_ORIGINS:
+    _allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
@@ -169,13 +175,17 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     duration = time.time() - start_time
 
+    # SECURITY FIX: Prevent high-cardinality label injection DoS
+    route = request.scope.get("route")
+    endpoint_label = route.path if route else "unmatched_route"
+
     REQUEST_COUNT.labels(
         method=request.method,
-        endpoint=request.url.path,
+        endpoint=endpoint_label,
         status=response.status_code,
     ).inc()
 
-    REQUEST_LATENCY.labels(endpoint=request.url.path).observe(duration)
+    REQUEST_LATENCY.labels(endpoint=endpoint_label).observe(duration)
 
     logger.info(
         f"{request.method} {request.url.path} "

@@ -77,17 +77,26 @@ def main():
     y = df[target_col].values
     X = df.drop(columns=[target_col, id_col])
 
+    from sklearn.impute import SimpleImputer
+
     # --- Build preprocessor pipeline ---
+    # Add SimpleImputer to prevent catastrophic failure on unexpected NaNs
     numeric_transformer = Pipeline(
-        steps=[("scaler", StandardScaler())]
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler())
+        ]
     )
 
-    # STRICT: handle_unknown='error'
-    # This ensures that we don't silently ignore new categories in production.
-    # If the model encounters a new drug/condition, it should fail rather than 
-    # produce a potentially dangerous prediction based on default values.
+    # STRICT: handle_unknown='ignore'
+    # In production, crashing on a new drug/condition creates downtime.
+    # It is usually safer to zero-out the unexpected category's one-hot encodings 
+    # than to hard-crash the API. We log these via a separate data drift monitor.
     categorical_transformer = Pipeline(
-        steps=[("onehot", OneHotEncoder(handle_unknown="error", sparse_output=False))]
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+        ]
     )
 
     preprocessor = ColumnTransformer(

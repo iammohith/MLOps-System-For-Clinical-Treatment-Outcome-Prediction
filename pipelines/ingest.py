@@ -63,10 +63,10 @@ def main():
         # STRICT: Memory Safety. 
         # Do not load entire dataset just to check if it's empty.
         # Check first few rows to validate format, then use file size/metadata if possible.
-        # For this stage, we accept a sample check implies content.
-        df_sample = pd.read_csv(raw_path, nrows=5)
+        # Ensure engine is 'c' for speed and strict evaluation.
+        df_sample = pd.read_csv(raw_path, nrows=5, engine="c")
     except Exception as e:
-        logger.error(f"Failed to read CSV: {e}")
+        logger.error(f"Failed to read CSV format correctly: {e}")
         sys.exit(1)
 
     if len(df_sample) == 0:

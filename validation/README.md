@@ -35,16 +35,17 @@ The CI/CD Gatekeeper context. Executed fundamentally as a precondition before br
 graph TD
     PR[New Pull Request] -->|Triggers| Make(make validate)
     
-    Make --> Repo[validate_repo.py]
-    Repo -->|Checks YAML Config| Y(params.yaml)
-    Repo -->|Checks DVC Stage| D(dvc.lock)
-    
+    Make --> Tests[pytest tests/]
     Make --> Runtime[release_check.py]
-    Runtime -->|Compiles| Images[docker compose build]
-    Runtime -->|Deploys| Containers[Runtime Sandbox]
-    Runtime -->|Curls API| Endpoint(POST /predict)
     
-    Containers --> |If SUCCESS| Merge(Merge Permitted)
+    Runtime --> Step1[Step 1: Repo Integrity]
+    Step1 -->|Checks YAML, Required Files| Step2[Step 2: DVC Pipeline]
+    Step2 -->|dvc repro| Step3[Step 3: Docker Builds]
+    Step3 -->|docker build x3| Step4[Step 4: K8s Validation]
+    Step4 -->|kubectl dry-run| Step5[Step 5: API Runtime]
+    Step5 -->|Starts uvicorn, tests /health, /predict, /metrics| Result
+    
+    Result -->|If SUCCESS| Merge(Merge Permitted)
 ```
 
 ### Architectural Principles
@@ -57,10 +58,8 @@ graph TD
 
 ### Core Modules
 
-1. **`validation/validate_repo.py`**
-   - **Responsibility**: Static Analysis. Scans local registry structure, confirms dependencies exist, checks `.yaml` configuration limits logically.
-2. **`validation/release_check.py`**
-   - **Responsibility**: Operational Analytics. Generates full Docker containers implicitly, boots them, intercepts them via raw `cURL` commands testing HTTP 200 outputs, and tears them down.
+1. **`validation/release_check.py`**
+   - **Responsibility**: Comprehensive 5-step release validation. Checks repository integrity, runs the DVC pipeline, builds Docker images, validates K8s manifests, and performs runtime API testing with automatic startup/teardown.
 
 ---
 
@@ -77,15 +76,11 @@ graph TD
 ## 6. Execution Flow
 
 ### Comprehensive Sequence ( `make validate` )
-1. Initializes `validate_repo`.
-2. Asserts standard directory tree logic.
-3. Tests DVC structural status bounds.
-4. Invokes `release_check`.
-5. Automates a `docker build` targeting `infra/Dockerfile.inference`.
-6. Executes `docker run` detached.
-7. Iteratively queries the Liveness Probe Endpoint `GET /health` with linear backoff.
-8. Posts a mock JSON clinical record mathematically asserting standard success routing.
-9. Executes cleanup bounds triggering SIGKILL against targeted validation containers.
+1. **Step 1 — Repository Integrity**: Verifies all mandatory files exist (`README.md`, `dvc.yaml`, `params.yaml`, Dockerfiles, K8s manifests). Validates YAML syntax.
+2. **Step 2 — DVC Pipeline**: Executes `dvc repro` end-to-end. Verifies `model.joblib`, `scores.json`, and `preprocessor.joblib` are produced.
+3. **Step 3 — Docker Builds**: Builds all 3 Docker images (training, inference, frontend). Verifies Docker daemon is reachable.
+4. **Step 4 — K8s Validation**: Runs `kubectl apply --dry-run=client` against all K8s manifests. Verifies NodePort configuration.
+5. **Step 5 — API Runtime**: Starts the API via `uvicorn`, polls `/health` with retry loop (15 attempts), sends a valid prediction to `/predict`, and verifies `/metrics` exposes Prometheus counters. Cleans up the process on exit.
 
 ---
 

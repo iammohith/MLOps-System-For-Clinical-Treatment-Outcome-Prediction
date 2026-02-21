@@ -63,7 +63,7 @@ graph TD
 2. **`pipelines/ingest.py`**
    - **Responsibility**: Extracts tracking schemas. Generates `ingested.csv` from raw external references.
 3. **`pipelines/validate.py`**
-   - **Responsibility**: Schema enforcement. Executes Pydantic bounds checks against the raw Pandas DataFrame using standard values defined in `params.yaml`.
+   - **Responsibility**: Schema enforcement. Executes column, type, and range checks against the Pandas DataFrame using valid values defined in `params.yaml`.
 4. **`pipelines/preprocess.py`**
    - **Responsibility**: Normalization and Encodings. Executes train_test_split. Compiles and dumps the Scikit-Learn `ColumnTransformer` Pipeline artifact (`preprocessor.joblib`).
 5. **`pipelines/extract_combinations.py`**

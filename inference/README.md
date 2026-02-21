@@ -52,7 +52,7 @@ graph TD
 ```
 
 ### Architectural Principles
-- **Fail Fast**: Missing model files crash the application boundary at boot (`lifespan`), preventing partial-state zombies.
+- **Graceful Startup**: If model loading fails, the API starts but reports `model_loaded: false` via `/health`. This prevents orchestrator crash loops while allowing health checks to route traffic away.
 - **Controller-Service-Repository Pattern**: `app.py` acts as the Controller. `model_loader.py` acts as the Repository. Pydantic acts as the domain Service validator.
 
 ---
@@ -92,7 +92,7 @@ The service adheres strictly to REST mechanics.
 
 | Endpoint | Method | Input Format | Output Format | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `/health` | `GET` | None | `{"status": "ok"}` | Liveness/Readiness probe. |
+| `/health` | `GET` | None | `{"status": "healthy", "model_loaded": true}` | Liveness/readiness probe. |
 | `/predict` | `POST` | `PredictionRequest` JSON | `PredictionResponse` JSON | Executes model inference. |
 | `/dropdown-values` | `GET` | None | `DropdownValues` JSON | Broadcasts schema enums to GUI. |
 | `/metrics` | `GET` | None | Prometheus Text Format | Application state telemetry. |
@@ -138,7 +138,7 @@ Managed via Uvicorn (ASGI). Deployed via Docker Compose maping port 8000.
 - **Least Privilege (Execution)**: The Dockerfile creates a non-root `appuser`. If an RCE vulnerability exists in Pandas, the attacker gains no administrative root capabilities inside the container namespace.
 - **Middleware Chains**:
   - `TrustedHostMiddleware`: Blocks HTTP Host header spoofing.
-  - `CORSMiddleware`: Enforces Origin whitelisting to trusted frontends only.
+   - `CORSMiddleware`: Enforces Origin whitelisting. Dynamically disables `allow_credentials` when wildcard origins are detected to prevent `AssertionError` crashes.
   - `add_security_headers`: Injects CSP, blocking arbitrary inline evaluations except for Swagger UI CDN requirements.
 
 ---

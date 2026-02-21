@@ -7,7 +7,8 @@ Enforces exact CSV schema — inference hard-fails on schema violations.
 import os
 import json
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Any
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # --- Load Schema from params.yaml ---
@@ -16,12 +17,15 @@ PARAMS_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "params.yaml"
 )
 
-if not os.path.exists(PARAMS_PATH):
-    raise FileNotFoundError(f"Config file not found: {PARAMS_PATH}")
-
-with open(PARAMS_PATH, "r") as f:
-    _params = yaml.safe_load(f)
-    _schema = _params["schema"]
+_params: dict[str, Any] = {}
+_schema: dict[str, Any] = {}
+if os.path.exists(PARAMS_PATH):
+    try:
+        with open(PARAMS_PATH, "r") as f:
+            _params = yaml.safe_load(f) or {}
+            _schema = _params.get("schema", {})
+    except (yaml.YAMLError, IOError):
+        pass
 
 # Load valid combinations extract
 COMBOS_PATH = os.path.join(
@@ -30,21 +34,21 @@ COMBOS_PATH = os.path.join(
 
 VALID_COMBINATIONS = []
 if os.path.exists(COMBOS_PATH):
-    with open(COMBOS_PATH, "r") as f:
-        VALID_COMBINATIONS = json.load(f)
-else:
-    # Fallback to empty if not found during early init
-    VALID_COMBINATIONS = []
+    try:
+        with open(COMBOS_PATH, "r") as f:
+            VALID_COMBINATIONS = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        VALID_COMBINATIONS = []
 
 
-VALID_GENDERS      = _schema.get("gender_values", [])
-VALID_CONDITIONS   = _schema.get("condition_values", [])
-VALID_DRUGS        = _schema.get("drug_values", [])
-VALID_SIDE_EFFECTS = _schema.get("side_effect_values", [])
-VALID_DOSAGES      = [float(v) for v in _schema.get("dosage_values", [])]
+VALID_GENDERS      = _schema.get("gender_values", []) if _schema else []
+VALID_CONDITIONS   = _schema.get("condition_values", []) if _schema else []
+VALID_DRUGS        = _schema.get("drug_values", []) if _schema else []
+VALID_SIDE_EFFECTS = _schema.get("side_effect_values", []) if _schema else []
+VALID_DOSAGES      = [float(v) for v in _schema.get("dosage_values", [])] if _schema else []
 
-AGE_RANGE      = _schema.get("age_range", [0, 100])
-DURATION_RANGE = _schema.get("duration_range", [1, 365])
+AGE_RANGE      = _schema.get("age_range", [0, 100]) if _schema else [0, 100]
+DURATION_RANGE = _schema.get("duration_range", [1, 365]) if _schema else [1, 365]
 
 
 class PredictionRequest(BaseModel):
@@ -160,6 +164,8 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     """Schema for prediction API response."""
 
+    model_config = ConfigDict(protected_namespaces=())
+
     Patient_ID: str = Field(
         ...,
         description="Patient identifier from request"
@@ -186,6 +192,8 @@ class PredictionResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Schema for health check response."""
+
+    model_config = ConfigDict(protected_namespaces=())
 
     status: str        = Field(default="healthy")
     model_loaded: bool = Field(default=False)

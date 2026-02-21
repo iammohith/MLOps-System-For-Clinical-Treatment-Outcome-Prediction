@@ -10,6 +10,7 @@ import hashlib
 import joblib
 import logging
 import pandas as pd
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +19,18 @@ class ModelLoader:
     """Singleton model loader with version tracking."""
 
     _instance = None
-    _model = None
-    _preprocessor = None
-    _model_version = "unknown"
-    _is_loaded = False
+    _model: Any = None
+    _preprocessor: Any = None
+    _model_version: str = "unknown"
+    _is_loaded: bool = False
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
+            cls._instance._model = None
+            cls._instance._preprocessor = None
+            cls._instance._model_version = "unknown"
+            cls._instance._is_loaded = False
         return cls._instance
 
     def load(
@@ -46,7 +51,7 @@ class ModelLoader:
 
         # Generate version hash from model file
         with open(model_path, "rb") as f:
-            model_hash = hashlib.sha256(f.read()).hexdigest()[:8]
+            model_hash = str(hashlib.sha256(f.read()).hexdigest())[:8]
         self._model_version = f"v-{model_hash}"
         self._is_loaded = True
 
@@ -95,4 +100,4 @@ class ModelLoader:
         # Clamp to valid range
         prediction = max(0.0, min(10.0, float(prediction)))
 
-        return round(prediction, 2)
+        return float(f"{prediction:.2f}")

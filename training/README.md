@@ -56,6 +56,8 @@ graph LR
    - **Responsibility**: Instantiates the Scikit-Learn object, reads the matrices, executes `.fit()`, and dumps the resultant serialized estimator to disk.
 2. **`evaluate.py`**
    - **Responsibility**: Evaluates the fitted model against unseen test benchmarks. Calculates standard regression KPIs (RMSE, MAE, R-Squared).
+3. **`tune.py`**
+   - **Responsibility**: Hyperparameter optimization via `GridSearchCV`. Defines parameter grids for `RandomForestRegressor` and logs optimal configurations.
 
 ---
 
